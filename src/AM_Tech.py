@@ -39,7 +39,7 @@
 import csv
 import datetime
 import os
-#import numpy as np
+import numpy as np
 import shutil
 import math
 
@@ -222,7 +222,7 @@ if FGM == 1:
 
 # reading in gcode files for non FGM part
 elif FGM == 0:
-    print ("here")
+    # print ("here")
     for gcodes in os.listdir(gcode_files_path):
         # more variables needed for reading gcodes
         x = []
@@ -267,7 +267,7 @@ elif FGM == 0:
                         continue
                     if item.startswith("Z"):
                         z.append(float(item[1:]))
-                        print(z_pos)
+                        # print(z_pos)
                         z_posl.append(z_pos)  # Count of z positions per layer
                         continue
 
@@ -338,62 +338,47 @@ elif FGM == 0:
                         
 # The following develops the wiper event series from laser position data. The x and y are fixed to match the AM
 # machine and will have the same wiper characteristics for any print
-if lpbf == 1:
-    p = 1
-    while p <= len(z_out):
-        if p == 1:
-            t_roller.append(t_out[p-1])
-            power_out[p-1] = 0.0
-            p += 1
-        elif p == len(z_out):
-            z_roller.append(z_out[p-1])
-            t_roller.append(t_out[p-1])
-            power_out[p-2] = 0.0
-            p += 1
-        elif z_out[p-1] < z_out[p]:
-            z_roller.append(z_out[p-1])
-            t_roller.append(t_out[p-1])
-            power_out[p-2] = 0.0
-            p += 1
-        else:
-            p += 1
-            
-if (in_situ_dwell == 1) :
-    p = 1
-    # Offsetting time with in-situ dwell time
-    while p <= len(z_out):
-        if p == 1:
-            v = 1
-            while v <= len(t_out):
-                t_out[v-1] += i_dwell
-                v += 1
-            p += 1
-        elif p == len(z_out):
-            p += 1
-        elif z_out[p-1] < z_out[p]:
-            v = p
-            while v <= len(t_out):
-                t_out[v-1] += w_dwell
-                v += 1
-            p += 1
-        else:
-            p += 1 
-    
-    # offsets roller time by in-situ dwell time
-    p = 1; t_wiper.append(0.0)
-    while p < len(t_roller):
-        t_wiper.append(t_roller[p-1]+i_dwell+w_dwell*(p-1))
-        t_wiper.append(t_roller[p]+w_dwell+w_dwell*(p-1))
-        p += 1
+t_out = np.array(t_out)
+if lpbf:
+    # initialize roller arrays
+    if in_situ_dwell:
+        # tracker array for indices where z increases
+        z_inc_arr = list()
+    t_roller = [t_out[0]]
+    z_roller = list()
+    power_out[0] = 0.0
+    for i in range(1, len(z_out)):
+        if z_out[i-1] < z_out[i]:
+            # when z increases, set power_out to 0 and append the last item
+            if in_situ_dwell:
+                z_inc_arr.append(i-1)
+            t_roller.append(t_out[i-1])
+            z_roller.append(z_out[i-1])
+            power_out[i-2] = 0.0
+
+    # end by appending the last item and a final 0 for power
+    t_roller.append(t_out[i])
+    z_roller.append(z_out[i])
+    power_out[i-1] = 0.0
+
+if in_situ_dwell:
+    # initialize wiper arrays
+    t_wiper = [0.0]
+    z_wiper = list()
+    for i in range(len(t_roller)):
+        if i == len(t_roller) - 1:
+            # required since we're using index + 1
+            break
+        t_wiper.append(t_roller[i]+i_dwell+w_dwell*(i))
+        t_wiper.append(t_roller[i+1]+w_dwell+w_dwell*(i))
+        z_wiper.append(z_roller[i])
+        z_wiper.append(z_roller[i])
     del (t_wiper[-1])
-    p = 1
-    while p <= len(z_roller):
-        temp = []
-        temp.append(z_roller[p-1])
-        temp.append(z_roller[p-1])
-        z_wiper.append(temp[0])
-        z_wiper.append(temp[1])
-        p += 1
+
+    t_out += i_dwell # increment whole t_out array by i_dwell
+    for ind in z_inc_arr:
+        # at all places where z increases, add w_dwell
+        t_out[ind:] += w_dwell
 
 # exporting laser event series##
 with open(Lfile, 'w', newline='') as csvfile:
