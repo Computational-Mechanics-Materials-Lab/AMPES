@@ -42,6 +42,7 @@ import os
 import numpy as np
 import shutil
 import math
+import re
 
 # used for recording time to completion
 e = datetime.datetime.now()
@@ -223,6 +224,7 @@ if FGM == 1:
 # reading in gcode files for non FGM part
 elif FGM == 0:
     # print ("here")
+    pattern = re.compile("[XYZE]-?\d+\.?\d*") # matching pattern for coordinate strings
     for gcodes in os.listdir(gcode_files_path):
         # more variables needed for reading gcodes
         x = []
@@ -243,33 +245,17 @@ elif FGM == 0:
             # Replacing ; with single space and splitting into list
             for line in lines:
                 line = line.replace(';', ' ').split()
-                p = 0
-                while p < len(line):
-                    linestring += line[p]
-                    p += 1
-                # If extrusion and movement command found, append power value
-                if linestring.find("E") != -1 and linestring.find("X") != -1:
-                    power.append(laser_power)
-                # If movement but no extrusion, append power of zero
-                elif linestring.find("X") != -1 and linestring.find("E") == -1:
-                    power.append(0.0)
-
                 # Add coordinates to corresponding arrays # changed linestring here
                 for item in line:
-                    item = ''.join(c for c in item if c.isdigit() or c == "-" or c == "." or c == "X" or
-                                                                                    c == "Y" or c == "Z" or c == "E")
-                    if item.startswith("X"):
-                        x.append(float(item[1:]))
-                        z_pos += 1
-                        continue
-                    if item.startswith("Y"):
-                        y.append(float(item[1:]))
-                        continue
-                    if item.startswith("Z"):
-                        z.append(float(item[1:]))
-                        # print(z_pos)
-                        z_posl.append(z_pos)  # Count of z positions per layer
-                        continue
+                    if pattern.fullmatch(item):
+                        if item[0] == "X":
+                            x.append(float(item[1:]))
+                            z_pos += 1
+                        elif item[0] == "Y":
+                            y.append(float(item[1:]))
+                        elif item[0] == "Z":
+                            z.append(float(item[1:]))
+                            z_posl.append(z_pos)  # Count of z positions per layer
 
     # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
     # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
@@ -288,28 +274,26 @@ elif FGM == 0:
                 x_add = del_x / interval  # incremental point distance that will sum to del_x based on step
                 y_add = del_y / interval  # incremental point distance that will sum to del_y based on step
                 k = 0
-                
-                while k <= interval:
+                start_time = tm.process_time()
+                for k in range(0, interval+1):
                     if k == 0:
-                        if i == 1:
-                            x_coord = x[i - 1]
-                            y_coord = y[i - 1]
-                        else:
-                            k += 1
+                        if i != 1:
                             continue
-                    elif k != 0 and k != interval:
+                        x_coord = x[0]
+                        y_coord = y[0]
+                    elif k < interval:
                         x_coord += x_add
                         y_coord += y_add
-                    elif k == interval:
+                    else:
                         x_coord = x[i]
                         y_coord = y[i]
                     x_out.append(x_coord)
                     y_out.append(y_coord)
                     z_out.append(z_coord)
-                    power_out.append(power[i])
+                    # power_out.append(power[i])
                     time += inst
                     t_out.append(time)
-                    k += 1
+
                 # Recording gcode converted values of x, y, z, power, and time to output arrays
                 if j < len(z_posl): #if j is less than the total number of layers in the build
                     if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
@@ -322,7 +306,7 @@ elif FGM == 0:
                         x_out.append(x_coord)
                         y_out.append(y_coord)
                         z_out.append(z_coord)
-                        power_out.append(power[i])
+                        # power_out.append(power[i])
                         time += inst
                         t_out.append(time)
                         
@@ -330,17 +314,18 @@ elif FGM == 0:
                         x_out.append(x_coord)
                         y_out.append(y_coord)
                         z_out.append(z_coord)
-                        power_out.append(power[i])
+                        # power_out.append(power[i])
                         time += inst
                         t_out.append(time)
 
                         j += 1
                         
-# The following develops the wiper event series from laser position data. The x and y are fixed to match the AM
-# machine and will have the same wiper characteristics for any print
+# The following develops the wiper event series from laser position data and constructs the output power array. 
+# The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 t_out = np.array(t_out)
 if lpbf:
     # initialize roller arrays
+    power_out = np.full(len(x_out), laser_power, dtype=np.float64)
     if in_situ_dwell:
         # tracker array for indices where z increases
         z_inc_arr = list()
@@ -375,61 +360,57 @@ if in_situ_dwell:
         z_wiper.append(z_roller[i])
     del (t_wiper[-1])
 
+    # adding dwell time to time array
     t_out += i_dwell # increment whole t_out array by i_dwell
     for ind in z_inc_arr:
-        # at all places where z increases, add w_dwell
+        # at all places where z increases, add w_dwell to whole array including and proceeding that position
         t_out[ind:] += w_dwell
 
 # exporting laser event series##
 with open(Lfile, 'w', newline='') as csvfile:
     position_writer = csv.writer(csvfile)
-    k = 0
-    while k < len(t_out):
-        row = [round(t_out[k], 6), round(x_out[k]+xorg_shift, 6), round(y_out[k]+yorg_shift, 6), round(z_out[k] -
-                                                                                substrate+zorg_shift, 3), power_out[k]]
+    for i in range(len(t_out)):
+        row = [round(t_out[i], 6), round(x_out[i]+xorg_shift, 6), round(y_out[i]+yorg_shift, 6), round(z_out[i] -
+                                                                                substrate+zorg_shift, 3), power_out[i]]
         position_writer.writerow(row)
-        k += 1
 
 # exporting wiper/roller event series
 if lpbf == 1:
     with open(Rfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
-        k = 0
-        while k < len(z_wiper):
-            if k % 2 == 0:
-                row = [round(t_wiper[k], 6), -90, 180, round(z_wiper[k]-substrate+zorg_shift, 3), on]
+        for i in range(len(z_wiper)):
+            if i % 2 == 0:
+                row = [round(t_wiper[i], 6), -90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), on]
                 position_writer.writerow(row)
             else:    
-                row = [round(t_wiper[k], 6), 90, 180, round(z_wiper[k]-substrate+zorg_shift, 3), off]
+                row = [round(t_wiper[i], 6), 90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), off]
                 position_writer.writerow(row)
-            k += 1
 
 # creating temperature output write times for at the end of the print phase for each layer
+#TODO: Refactor while loops into for loops in the proceeding functions
 if output_request == 1:
-    k = 0
     in_time = i_dwell
     output_scan = []
     increment_sample_points = 0
     q = 1
     temp = []
-    while k < len(t_out):
-        if t_out[k] - in_time <= 5.0:
-            temp.append(t_out[k])
-        elif t_out[k] - in_time > 5.0 or k + 1 == len(t_out):
+    for i in range(len(t_out)):
+        if t_out[i] - in_time <= 5.0:
+            temp.append(t_out[i])
+        elif t_out[i] - in_time > 5.0 or i + 1 == len(t_out):
             increment_sample_points = int(len(temp) / sample_point_count)
             if len(temp) % sample_point_count == 0:
                 while q < sample_point_count:
                     output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
                     q += 1
-            elif len(temp) % sample_point_count != 0:
+            else:
                 while q + 1 < sample_point_count:
                     output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
                     q += 1
-                output_scan.append(str(round(t_out[k - 1], 6)))
+                output_scan.append(str(round(t_out[i - 1], 6)))
             temp = []
-        in_time = t_out[k]
+        in_time = t_out[i]
         q = 0
-        k += 1
 
     increment_sample_points = int(len(temp) / sample_point_count)
     if len(temp) % sample_point_count == 0:
@@ -444,27 +425,23 @@ if output_request == 1:
 
     with open(Ofile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
-        k = 0
         p = 0
         counter = 0
-        while k < len(t_wiper):
-            if k % 2 == 0:
-                row = [(round(t_wiper[k], 6))]
+        for i in range(len(t_wiper)):
+            if i % 2 == 0:
+                row = [(round(t_wiper[i], 6))]
                 position_writer.writerow(row)
-            elif k % 2 != 0:
-                while counter < sample_point_count:
+            elif i % 2 != 0:
+                for j in range(sample_point_count):
                     row = [output_scan[p]]
                     position_writer.writerow(row)
-                    counter += 1
                     p += 1
-                counter = 0
-            k += 1
 
 # Exporting process parameters used in this run
 if process_param_request == 1:
     with open(Tfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
-        date_time = ["Developed " + "%s/%s/%s" % (e.year, e.day, e.month) + ' at ' + "%s:%s" % (e.hour, e.minute)]
+        date_time = ["Developed {} at {}".format(e.strftime("%Y/%d/%m"), e.strftime("%H:%M"))]
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         position_writer.writerow(header)
@@ -474,19 +451,17 @@ if process_param_request == 1:
             position_writer.writerow(row1)
             position_writer.writerow(row2)
         elif FGM == 1:
-            count = 0
-            while count < gcode_count:
+            for i in range(gcode_count):
                 row1 = []
                 row2 = []
-                row1.append("velocity " + str(count+1))
-                row2.append("Laser Power " + str(count+1))
-                row1.append(scan_speed_FGM[count])
-                row2.append(laser_power_FGM[count])
+                row1.append("velocity " + str(i+1))
+                row2.append("Laser Power " + str(i+1))
+                row1.append(scan_speed_FGM[i])
+                row2.append(laser_power_FGM[i])
                 row1.append("mm/s")
                 row2.append("mW")
                 position_writer.writerow(row1)
                 position_writer.writerow(row2)
-                count += 1
         row3 = ["Intervals", interval, "#"]
         position_writer.writerow(row3)
         row4 = ["Layer Height", layer_height, "mm"]
