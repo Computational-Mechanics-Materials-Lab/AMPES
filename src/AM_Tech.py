@@ -289,7 +289,6 @@ elif FGM == 0:
                     x_out.append(x_coord)
                     y_out.append(y_coord)
                     z_out.append(z_coord)
-                    # power_out.append(power[i])
                     time += inst
                     t_out.append(time)
 
@@ -305,7 +304,6 @@ elif FGM == 0:
                         x_out.append(x_coord)
                         y_out.append(y_coord)
                         z_out.append(z_coord)
-                        # power_out.append(power[i])
                         time += inst
                         t_out.append(time)
                         
@@ -313,7 +311,6 @@ elif FGM == 0:
                         x_out.append(x_coord)
                         y_out.append(y_coord)
                         z_out.append(z_coord)
-                        # power_out.append(power[i])
                         time += inst
                         t_out.append(time)
 
