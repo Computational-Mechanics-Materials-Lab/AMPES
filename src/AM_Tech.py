@@ -371,7 +371,7 @@ with open(Lfile, 'w', newline='') as csvfile:
         position_writer.writerow(row)
 
 # exporting wiper/roller event series
-if lpbf == 1:
+if roller == 1:
     with open(Rfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         for i in range(len(z_wiper)):
