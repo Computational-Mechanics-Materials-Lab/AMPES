@@ -95,7 +95,7 @@ Ofile = Fname + '_' + str(w_dwell) + '_' + str(layer_height) + "_output_times.in
 # within a directory adjacent to where the code will be run called "gcodes" and that you would like your result files
 # in a new directory named in accordance to the Lfile name
 
-work_dir = os.path.join(os.getcwd(), "plate")
+work_dir = os.path.join(os.getcwd(), "output")
 gcode_files_path = os.path.join(os.getcwd(),"gcodes")
 os.chdir(gcode_files_path)
 
