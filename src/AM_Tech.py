@@ -274,7 +274,6 @@ elif FGM == 0:
                 x_add = del_x / interval  # incremental point distance that will sum to del_x based on step
                 y_add = del_y / interval  # incremental point distance that will sum to del_y based on step
                 k = 0
-                start_time = tm.process_time()
                 for k in range(0, interval+1):
                     if k == 0:
                         if i != 1:
