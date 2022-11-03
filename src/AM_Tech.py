@@ -62,7 +62,7 @@ i_dwell = 8.0
 w_dwell = 10.0  # dwell time in seconds. Cannot be zero
 on = 1.0  # used for turing the roller on and off
 off = 0.0  # used for turing the roller on and off
-lpbf = on  # if a roller event series is needed, assign a value of 1
+roller = on  # if a roller event series is needed, assign a value of 1
 in_situ_dwell = on
 process_param_request = 1  # if a text file with process parameters is desired, assign a value of 1
 substrate = 0.05  # substrate height in mm. Use if substrate was used in gcode development
@@ -319,7 +319,7 @@ elif FGM == 0:
 # The following develops the wiper event series from laser position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 t_out = np.array(t_out)
-if lpbf:
+if roller:
     # initialize roller arrays
     power_out = np.full(len(x_out), laser_power, dtype=np.float64)
     if in_situ_dwell:
@@ -477,7 +477,7 @@ if process_param_request == 1:
 
 # Moving input files to work directory. This operation will overwrite files of the same name in the destination
 shutil.move(os.path.join(gcode_files_path, Lfile),os.path.join(work_dir, Lfile))
-if lpbf == 1:
+if roller == 1:
     shutil.move(os.path.join(gcode_files_path, Rfile),os.path.join(work_dir, Rfile))
 if process_param_request == 1:
     shutil.move(os.path.join(gcode_files_path, Tfile),os.path.join(work_dir, Tfile))
