@@ -1,0 +1,25 @@
+# Process Parameters
+# Set FGM to true and use FGM variables if a functionally graded material is to be modeled. Otherwise, set FGM to false,
+# neglect scan_speed_FGM and laser_power_FGM, and use scan_speed and laser_power
+scan_speed: 1000
+laser_power: 4000000
+FGM: false
+scan_speed_FGM: [1200, 700]
+laser_power_FGM: [300000, 400000]
+
+interval: 5 # number of points you would like to have between all points from gcode
+layer_height: 0.1  # layer height in mm
+i_dwell: 8.0
+w_dwell: 10.0  # dwell time in seconds. Cannot be zero
+lpbf: true  # if a roller event series is needed, set to true
+in_situ_dwell: true
+process_param_request: true  # if a text file with process parameters is desired, set to true
+substrate: 0.05  # substrate height in mm. Use if substrate was used in gcode development
+output_request: false # set to one if you want to create output points based on the event series
+sample_point_count: 1  # set this to the number of output points you want from scanning
+
+# org_shift used if event series origin is not the same as mesh origin
+xorg_shift: 0.0
+yorg_shift: 0.0
+zorg_shift: 0.0
+

@@ -39,65 +39,89 @@
 import csv
 import datetime
 import os
+import argparse
+import yaml
 import numpy as np
 import shutil
 import math
 import re
 
+# Argument Parsing 
+cwd = os.getcwd()
+parser = argparse.ArgumentParser(prog="AM Tech", description="Reads a RepRap gcode file and outputs Abaqus compatible .inp files based off of it.")
+parser.add_argument("-i", "--input_dir", help="Folder that contains the gcode file(s), defaults to <current working dir>/gcodes", default=os.path.join(cwd, "gcodes"))
+parser.add_argument("-c", "--config", help="Config input YAML that will be used to initialize parameters, defaults to <current working dir>/input.yaml", default=os.path.join(cwd, "input.yaml"))
+parser.add_argument("-d", "--output_dir", help="Directory to output files to, defaults to <current working dir>/output", default=os.path.join(cwd, "output"))
+parser.add_argument("-o", "--outfile_name", help="Basename for the files that will be outputted, defaults to \"output\"", default="output")
+
+args = parser.parse_args()
+
+
+# Process Parameters
+# All are set from the config provided as an argument
+
+# Load in config yaml file.
+with open(args.config, "r") as config_file:
+    config = yaml.safe_load(config_file)
+
+#TODO: Input verification
+FGM = config["FGM"]
+# Load certain variables given FGM
+if FGM:
+    scan_speed_FGM = config["scan_speed_FGM"]
+    laser_power_FGM = config["laser_power_FGM"]
+else:
+    scan_speed = config["scan_speed"]
+    laser_power = config["laser_power"]
+#step = 0.1  # time step in seconds - maybe exposure time
+interval = config["interval"]
+layer_height = config["layer_height"]
+i_dwell = config["i_dwell"]
+w_dwell = config["w_dwell"]
+lpbf = config["lpbf"]
+in_situ_dwell = config["in_situ_dwell"]
+process_param_request = config["process_param_request"]
+substrate = config["substrate"]
+output_request = config["output_request"]
+sample_point_count = config["sample_point_count"]
+
+# org_shift used if event series origin is not the same as mesh origin
+xorg_shift = config["xorg_shift"]
+yorg_shift = config["yorg_shift"]
+zorg_shift = config["zorg_shift"]
+
 # used for recording time to completion
 e = datetime.datetime.now()
 
-# Process Parameters
-# Set FGM to 1 and use FGM variables if a functionally graded material is to be modeled. Otherwise, set FGM to 0,
-# neglect scan_speed_FGM and laser_power_FGM, and use scan_speed and laser_power
-FGM = 0
-scan_speed = 1000
-laser_power = 4000000
-scan_speed_FGM = [1200, 700]
-laser_power_FGM = [300000, 400000]
-#step = 0.1  # time step in seconds - maybe exposure time
-interval = 5 #number of points you would like to have between all points from gcode
-layer_height = 0.1  # layer height in mm
-i_dwell = 8.0
-w_dwell = 10.0  # dwell time in seconds. Cannot be zero
-on = 1.0  # used for turing the roller on and off
-off = 0.0  # used for turing the roller on and off
-lpbf = on  # if a roller event series is needed, assign a value of 1
-in_situ_dwell = on
-process_param_request = 1  # if a text file with process parameters is desired, assign a value of 1
-substrate = 0.05  # substrate height in mm. Use if substrate was used in gcode development
-output_request = off # set to one if you want to create output points based on the event series
-sample_point_count = 1  # set this to the number of output points you want from scanning
-
-# org_shift used if event series origin is not the same as mesh origin
-xorg_shift = 0.0
-yorg_shift = 0.0
-zorg_shift = 0.0
-
 # initializing arrays and variables
 power_out = []
-x_out = []; y_out = []; z_out = []
+x_out = []
+y_out = []
+z_out = []
 t_out = []
 time = 0
-z_roller = []; t_roller = []
-t_wiper = []; z_wiper = []
+z_roller = []
+t_roller = []
+t_wiper = []
+z_wiper = []
 
 # assign working directories. Your gcode should have information to the geometry in its title. Add variables as shown
 # to add more description to the event series being developed.
 
-Fname = "plate_rev2"
-Lfile = Fname + '_' + str(w_dwell) + '_' + str(layer_height) + ".inp"
-Rfile = Fname + '_' + str(w_dwell) + '_' + str(layer_height) + "_roller.inp"
-Tfile = Fname + '_' + str(w_dwell) + '_' + str(layer_height) + "_process_parameter.csv"
-Ofile = Fname + '_' + str(w_dwell) + '_' + str(layer_height) + "_output_times.inp"
+basename = args.outfile_name
+output_dir = args.output_dir
+filename_start = os.path.join(output_dir, basename)
+Lfile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + ".inp"
+Rfile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + "_roller.inp"
+Tfile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + "_process_parameter.csv"
+Ofile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + "_output_times.inp"
 
 # update path + directory name to match your configuration. This configuration assumes you will have your gcode
 # within a directory adjacent to where the code will be run called "gcodes" and that you would like your result files
 # in a new directory named in accordance to the Lfile name
-
-work_dir = os.path.join(os.getcwd(), "plate")
-gcode_files_path = os.path.join(os.getcwd(),"gcodes")
-os.chdir(gcode_files_path)
+if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+gcode_files_path = args.input_dir
 
 # Variables needed for reading gcodes
 gcode_count = 0
@@ -107,7 +131,7 @@ y_coord = 0.0
 linestring = ''
 
 # reading in gcode files for FGM part
-if FGM == 1:
+if FGM:
     for gcodes in os.listdir(gcode_files_path):  # need to develop way to start from bot to top of part
         # more variables needed for reading gcodes. These will be reset for each gcode file read
         x = []
@@ -222,7 +246,7 @@ if FGM == 1:
             gcode_count += 1
 
 # reading in gcode files for non FGM part
-elif FGM == 0:
+else:
     # print ("here")
     pattern = re.compile("[XYZE]-?\d+\.?\d*") # matching pattern for coordinate strings
     for gcodes in os.listdir(gcode_files_path):
@@ -371,20 +395,20 @@ with open(Lfile, 'w', newline='') as csvfile:
         position_writer.writerow(row)
 
 # exporting wiper/roller event series
-if lpbf == 1:
+if lpbf:
     with open(Rfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         for i in range(len(z_wiper)):
             if i % 2 == 0:
-                row = [round(t_wiper[i], 6), -90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), on]
+                row = [round(t_wiper[i], 6), -90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 1.0]
                 position_writer.writerow(row)
             else:    
-                row = [round(t_wiper[i], 6), 90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), off]
+                row = [round(t_wiper[i], 6), 90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 0.0]
                 position_writer.writerow(row)
 
 # creating temperature output write times for at the end of the print phase for each layer
 #TODO: Refactor while loops into for loops in the proceeding functions
-if output_request == 1:
+if output_request:
     in_time = i_dwell
     output_scan = []
     increment_sample_points = 0
@@ -434,19 +458,19 @@ if output_request == 1:
                     p += 1
 
 # Exporting process parameters used in this run
-if process_param_request == 1:
+if process_param_request:
     with open(Tfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         date_time = ["Developed {} at {}".format(e.strftime("%Y/%d/%m"), e.strftime("%H:%M"))]
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         position_writer.writerow(header)
-        if FGM == 0:
+        if not FGM:
             row1 = ["velocity", scan_speed, "mm/s"]
             row2 = ["Laser Power", laser_power, "mW"]
             position_writer.writerow(row1)
             position_writer.writerow(row2)
-        elif FGM == 1:
+        else:
             for i in range(gcode_count):
                 row1 = []
                 row2 = []
@@ -474,14 +498,5 @@ if process_param_request == 1:
         position_writer.writerow(row9)
         row10 = ["Origin Shift in Z", zorg_shift, "mm"]
         position_writer.writerow(row10)
-
-# Moving input files to work directory. This operation will overwrite files of the same name in the destination
-shutil.move(os.path.join(gcode_files_path, Lfile),os.path.join(work_dir, Lfile))
-if lpbf == 1:
-    shutil.move(os.path.join(gcode_files_path, Rfile),os.path.join(work_dir, Rfile))
-if process_param_request == 1:
-    shutil.move(os.path.join(gcode_files_path, Tfile),os.path.join(work_dir, Tfile))
-if output_request == 1:
-    shutil.move(os.path.join(gcode_files_path, Ofile),os.path.join(work_dir, Ofile))
 
 print("Complete" + "\n")
