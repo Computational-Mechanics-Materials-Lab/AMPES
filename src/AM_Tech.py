@@ -93,6 +93,36 @@ zorg_shift = config["zorg_shift"]
 # used for recording time to completion
 e = datetime.datetime.now()
 
+<<<<<<< HEAD
+=======
+# Process Parameters
+# Set FGM to 1 and use FGM variables if a functionally graded material is to be modeled. Otherwise, set FGM to 0,
+# neglect scan_speed_FGM and laser_power_FGM, and use scan_speed and laser_power
+FGM = 0
+scan_speed = 1000
+laser_power = 4000000
+scan_speed_FGM = [1200, 700]
+laser_power_FGM = [300000, 400000]
+#step = 0.1  # time step in seconds - maybe exposure time
+interval = 5 #number of points you would like to have between all points from gcode
+layer_height = 0.1  # layer height in mm
+i_dwell = 8.0
+w_dwell = 10.0  # dwell time in seconds. Cannot be zero
+on = 1.0  # used for turing the roller on and off
+off = 0.0  # used for turing the roller on and off
+roller = on  # if a roller event series is needed, assign a value of 1
+in_situ_dwell = on
+process_param_request = 1  # if a text file with process parameters is desired, assign a value of 1
+substrate = 0.05  # substrate height in mm. Use if substrate was used in gcode development
+output_request = off # set to one if you want to create output points based on the event series
+sample_point_count = 1  # set this to the number of output points you want from scanning
+
+# org_shift used if event series origin is not the same as mesh origin
+xorg_shift = 0.0
+yorg_shift = 0.0
+zorg_shift = 0.0
+
+>>>>>>> b517f786d2da3c9cd8e39dd9e7fa2e27951b3d97
 # initializing arrays and variables
 power_out = []
 x_out = []
@@ -119,9 +149,16 @@ Ofile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + "_output
 # update path + directory name to match your configuration. This configuration assumes you will have your gcode
 # within a directory adjacent to where the code will be run called "gcodes" and that you would like your result files
 # in a new directory named in accordance to the Lfile name
+<<<<<<< HEAD
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
 gcode_files_path = args.input_dir
+=======
+
+work_dir = os.path.join(os.getcwd(), "output")
+gcode_files_path = os.path.join(os.getcwd(),"gcodes")
+os.chdir(gcode_files_path)
+>>>>>>> b517f786d2da3c9cd8e39dd9e7fa2e27951b3d97
 
 # Variables needed for reading gcodes
 gcode_count = 0
@@ -343,7 +380,7 @@ else:
 # The following develops the wiper event series from laser position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 t_out = np.array(t_out)
-if lpbf:
+if roller:
     # initialize roller arrays
     power_out = np.full(len(x_out), laser_power, dtype=np.float64)
     if in_situ_dwell:
@@ -395,7 +432,11 @@ with open(Lfile, 'w', newline='') as csvfile:
         position_writer.writerow(row)
 
 # exporting wiper/roller event series
+<<<<<<< HEAD
 if lpbf:
+=======
+if roller == 1:
+>>>>>>> b517f786d2da3c9cd8e39dd9e7fa2e27951b3d97
     with open(Rfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         for i in range(len(z_wiper)):
@@ -499,4 +540,17 @@ if process_param_request:
         row10 = ["Origin Shift in Z", zorg_shift, "mm"]
         position_writer.writerow(row10)
 
+<<<<<<< HEAD
 print("Complete" + "\n")
+=======
+# Moving input files to work directory. This operation will overwrite files of the same name in the destination
+shutil.move(os.path.join(gcode_files_path, Lfile),os.path.join(work_dir, Lfile))
+if roller == 1:
+    shutil.move(os.path.join(gcode_files_path, Rfile),os.path.join(work_dir, Rfile))
+if process_param_request == 1:
+    shutil.move(os.path.join(gcode_files_path, Tfile),os.path.join(work_dir, Tfile))
+if output_request == 1:
+    shutil.move(os.path.join(gcode_files_path, Ofile),os.path.join(work_dir, Ofile))
+
+print("Complete" + "\n")
+>>>>>>> b517f786d2da3c9cd8e39dd9e7fa2e27951b3d97
