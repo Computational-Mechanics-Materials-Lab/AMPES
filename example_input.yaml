@@ -11,7 +11,7 @@ interval: 5 # number of points you would like to have between all points from gc
 layer_height: 0.1  # layer height in mm
 i_dwell: 8.0
 w_dwell: 10.0  # dwell time in seconds. Cannot be zero
-lpbf: true  # if a roller event series is needed, set to true
+roller: true  # if a roller event series is needed, set to true
 in_situ_dwell: true
 process_param_request: true  # if a text file with process parameters is desired, set to true
 substrate: 0.05  # substrate height in mm. Use if substrate was used in gcode development
