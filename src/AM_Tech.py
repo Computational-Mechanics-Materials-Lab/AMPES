@@ -248,15 +248,17 @@ if FGM:
 # reading in gcode files for non FGM part
 else:
     # print ("here")
-    pattern = re.compile("[XYZE]-?\d+\.?\d*") # matching pattern for coordinate strings
+    pattern = re.compile(r"[XYZFE]-?\d+\.?\d*") # matching pattern for coordinate strings
     for gcodes in os.listdir(gcode_files_path):
         # more variables needed for reading gcodes
         x = []
         y = []
         z = []
+        f = []
         z_posl = []
         power = []
         z_pos = 0
+        curr_f = 0
         if gcodes[-5:] == "gcode":
             # Assigning scan speed for current gcode
             vel = scan_speed
@@ -274,12 +276,15 @@ else:
                     if pattern.fullmatch(item):
                         if item[0] == "X":
                             x.append(float(item[1:]))
+                            f.append(curr_f)
                             z_pos += 1
                         elif item[0] == "Y":
                             y.append(float(item[1:]))
                         elif item[0] == "Z":
                             z.append(float(item[1:]))
                             z_posl.append(z_pos)  # Count of z positions per layer
+                        elif item[0] == "F":
+                            curr_f = float(item[1:])
 
     # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
     # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
