@@ -248,15 +248,18 @@ if FGM:
 # reading in gcode files for non FGM part
 else:
     # print ("here")
-    pattern = re.compile("[XYZE]-?\d+\.?\d*") # matching pattern for coordinate strings
+    pattern = re.compile(r"[XYZFE]-?\d+\.?\d*") # matching pattern for coordinate strings
     for gcodes in os.listdir(gcode_files_path):
         # more variables needed for reading gcodes
         x = []
         y = []
         z = []
+        f = []
         z_posl = []
         power = []
         z_pos = 0
+        curr_f = 0
+        max_f = 54000 # TODO:REMOVE THIS LATER
         if gcodes[-5:] == "gcode":
             # Assigning scan speed for current gcode
             vel = scan_speed
@@ -274,78 +277,79 @@ else:
                     if pattern.fullmatch(item):
                         if item[0] == "X":
                             x.append(float(item[1:]))
+                            f.append(curr_f)
                             z_pos += 1
                         elif item[0] == "Y":
                             y.append(float(item[1:]))
                         elif item[0] == "Z":
                             z.append(float(item[1:]))
                             z_posl.append(z_pos)  # Count of z positions per layer
+                        elif item[0] == "F":
+                            curr_f = float(item[1:])
+                if "X" in "".join(line):
+                    if "E" in "".join(line):
+                        power.append(laser_power * (curr_f/max_f)) # TODO:change this to reflect user input for contour and infil
+                    else:
+                        power.append(0)
+
 
     # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
     # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
     # the position command value is reached, it goes to the next value
 
             z_coord = z[1]; j = 2
+            x_out = np.array([x[0]])
+            y_out = np.array([y[0]])
+            z_out = np.array([z[1]])
+            power_out = np.array([0])
+            t_out = np.array([time])
             for i in range(1, len(x)):
                 del_x = x[i] - x[i-1]  # incremental change in x
                 del_y = y[i] - y[i-1]  # incremental change in y
                 # determining time to move between points based on xy data and velocity
                 
                 del_d = math.sqrt(pow(del_x,2) + pow(del_y,2))
-                del_t = del_d/vel
-        
-                inst = del_t / interval  # creating instant value to increase number of time points evenly
-                x_add = del_x / interval  # incremental point distance that will sum to del_x based on step
-                y_add = del_y / interval  # incremental point distance that will sum to del_y based on step
-                k = 0
-                for k in range(0, interval+1):
-                    if k == 0:
-                        if i != 1:
-                            continue
-                        x_coord = x[0]
-                        y_coord = y[0]
-                    elif k < interval:
-                        x_coord += x_add
-                        y_coord += y_add
-                    else:
-                        x_coord = x[i]
-                        y_coord = y[i]
-                    x_out.append(x_coord)
-                    y_out.append(y_coord)
-                    z_out.append(z_coord)
-                    time += inst
-                    t_out.append(time)
 
+                vel = f[i]/60
+                del_t = del_d/vel
+
+                # add interpolated values to output arrays
+                tmp_x = np.linspace(x[i-1], x[i], interval+1)
+                tmp_y = np.linspace(y[i-1], y[i], interval+1)
+                tmp_z = [z_coord]*interval
+                tmp_p = [power[i]]*interval
+                tmp_t = np.linspace(time, time+del_t, interval+1)
+                x_out = np.concatenate([x_out, tmp_x[1:]])
+                y_out = np.concatenate([y_out, tmp_y[1:]])
+                z_out = np.concatenate([z_out, tmp_z])
+                power_out = np.concatenate([power_out, tmp_p])
+                t_out = np.concatenate([t_out, tmp_t[1:]])
+
+                time += del_t
+                
                 # Recording gcode converted values of x, y, z, power, and time to output arrays
                 if j < len(z_posl): #if j is less than the total number of layers in the build
                     if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
+                        # peform a z jump of layer_height distance
                         del_z = layer_height
                         t = del_z / vel
-                        inst = t / interval
-                        z_add = del_z / interval
 
-                        z_coord = z[j-1]
-                        x_out.append(x_coord)
-                        y_out.append(y_coord)
-                        z_out.append(z_coord)
-                        time += inst
-                        t_out.append(time)
-                        
-                        z_coord = z[j]
-                        x_out.append(x_coord)
-                        y_out.append(y_coord)
-                        z_out.append(z_coord)
-                        time += inst
-                        t_out.append(time)
+                        tmp_z = np.linspace(z_coord, z_coord+layer_height, interval+1)
+                        tmp_t = np.linspace(time, time+t, interval+1)
+                        x_out = np.concatenate([x_out, [x_out[-1]]*interval])
+                        y_out = np.concatenate([y_out, [y_out[-1]]*interval])
+                        z_out = np.concatenate([z_out, tmp_z[1:]])
+                        power_out = np.concatenate([power_out, [0]*interval])
+                        t_out = np.concatenate([t_out, tmp_t[1:]])
 
+                        time += t
+                        z_coord += layer_height
                         j += 1
                         
 # The following develops the wiper event series from laser position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
-t_out = np.array(t_out)
 if roller:
     # initialize roller arrays
-    power_out = np.full(len(x_out), laser_power, dtype=np.float64)
     if in_situ_dwell:
         # tracker array for indices where z increases
         z_inc_arr = list()
