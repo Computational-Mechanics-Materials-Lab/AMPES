@@ -56,7 +56,6 @@ parser.add_argument("-o", "--outfile_name", help="Basename for the files that wi
 
 args = parser.parse_args()
 
-
 # Process Parameters
 # All are set from the config provided as an argument
 
@@ -328,21 +327,31 @@ else:
                 time += del_t
                 
                 # Recording gcode converted values of x, y, z, power, and time to output arrays
+                # This step occurs to assist the user for reading the output event series. The z-jump could take place with no points in between if desired
                 if j < len(z_posl): #if j is less than the total number of layers in the build
                     if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
                         # peform a z jump of layer_height distance
                         del_z = layer_height
                         t = del_z / vel
 
-                        tmp_z = np.linspace(z_coord, z_coord+layer_height, interval+1)
-                        tmp_t = np.linspace(time, time+t, interval+1)
-                        x_out = np.concatenate([x_out, [x_out[-1]]*interval])
-                        y_out = np.concatenate([y_out, [y_out[-1]]*interval])
-                        z_out = np.concatenate([z_out, tmp_z[1:]])
-                        power_out = np.concatenate([power_out, [0]*interval])
-                        t_out = np.concatenate([t_out, tmp_t[1:]])
+                        # tmp_z = np.linspace(z_coord, z_coord+layer_height, interval+1)
+                        # tmp_t = np.linspace(time, time+t, interval+1)
+                        # x_out = np.concatenate([x_out, [x_out[-1]]*interval])
+                        # y_out = np.concatenate([y_out, [y_out[-1]]*interval])
+                        # z_out = np.concatenate([z_out, tmp_z[1:]])
+                        # power_out = np.concatenate([power_out, [0]*interval])
+                        # t_out = np.concatenate([t_out, tmp_t[1:]])
 
-                        time += t
+                        # get current z, add height to it
+                        curr_z = z_out[-1]
+                        tmp_z = np.array([curr_z, curr_z + del_z])
+                        z_out = np.concatenate([z_out, tmp_z])
+                        # copy x-y values for the jump since it is stationary
+                        x_out = np.concatenate([x_out, [x_out[-1]]*2])
+                        y_out = np.concatenate([y_out, [y_out[-1]]*2])
+                        power_out = np.concatenate([power_out, [0]*2])
+                        t_out = np.concatenate([t_out, [t_out[-1]]*2])
+
                         z_coord += layer_height
                         j += 1
                         
