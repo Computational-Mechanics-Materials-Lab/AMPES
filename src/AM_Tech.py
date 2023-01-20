@@ -315,14 +315,14 @@ else:
                 # add interpolated values to output arrays
                 tmp_x = np.linspace(x[i-1], x[i], interval+1)
                 tmp_y = np.linspace(y[i-1], y[i], interval+1)
-                tmp_z = [z_coord]*interval
-                tmp_p = [power[i]]*interval
+                tmp_z = [z_coord]*(interval+1)
+                tmp_p = [power[i]]*(interval+1)
                 tmp_t = np.linspace(time, time+del_t, interval+1)
-                x_out = np.concatenate([x_out, tmp_x[1:]])
-                y_out = np.concatenate([y_out, tmp_y[1:]])
-                z_out = np.concatenate([z_out, tmp_z])
-                power_out = np.concatenate([power_out, tmp_p])
-                t_out = np.concatenate([t_out, tmp_t[1:]])
+                x_out = np.concatenate([x_out[:-1], tmp_x])
+                y_out = np.concatenate([y_out[:-1], tmp_y])
+                z_out = np.concatenate([z_out[:-1], tmp_z])
+                power_out = np.concatenate([power_out[:-1], tmp_p])
+                t_out = np.concatenate([t_out[:-1], tmp_t])
 
                 time += del_t
                 
