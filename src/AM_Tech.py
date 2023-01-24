@@ -45,6 +45,7 @@ import numpy as np
 import shutil
 import math
 import re
+from itertools import chain
 
 # Argument Parsing 
 cwd = os.getcwd()
@@ -249,18 +250,18 @@ else:
     # print ("here")
     pattern = re.compile(r"[XYZFE]-?\d+\.?\d*") # matching pattern for coordinate strings
     for gcodes in os.listdir(gcode_files_path):
-        # more variables needed for reading gcodes
-        x = []
-        y = []
-        z = []
-        f = []
-        z_posl = []
-        power = []
-        z_pos = 0
-        curr_f = 0
-        max_f = 54000 # TODO:REMOVE THIS LATER
         if gcodes[-5:] == "gcode":
-            # Assigning scan speed for current gcode
+            # more variables needed for reading gcodes
+            x = []
+            y = []
+            z = []
+            f = []
+            z_posl = []
+            power = []
+            z_pos = 0
+            curr_f = 0
+            max_f = 54000 # TODO:REMOVE THIS LATER
+                # Assigning scan speed for current gcode
             vel = scan_speed
             with open(os.path.join(gcode_files_path, gcodes), 'r') as file:
                 lines = []
@@ -332,15 +333,6 @@ else:
                     if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
                         # peform a z jump of layer_height distance
                         del_z = layer_height
-                        t = del_z / vel
-
-                        # tmp_z = np.linspace(z_coord, z_coord+layer_height, interval+1)
-                        # tmp_t = np.linspace(time, time+t, interval+1)
-                        # x_out = np.concatenate([x_out, [x_out[-1]]*interval])
-                        # y_out = np.concatenate([y_out, [y_out[-1]]*interval])
-                        # z_out = np.concatenate([z_out, tmp_z[1:]])
-                        # power_out = np.concatenate([power_out, [0]*interval])
-                        # t_out = np.concatenate([t_out, tmp_t[1:]])
 
                         # get current z, add height to it
                         curr_z = z_out[-1]
@@ -355,49 +347,39 @@ else:
                         z_coord += layer_height
                         j += 1
                         
-# The following develops the wiper event series from laser position data and constructs the output power array. 
-# The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
-if roller:
-    # initialize roller arrays
-    if in_situ_dwell:
-        # tracker array for indices where z increases
-        z_inc_arr = list()
-    t_roller = [t_out[0]]
-    z_roller = list()
-    power_out[0] = 0.0
-    for i in range(1, len(z_out)):
-        if z_out[i-1] < z_out[i]:
-            # when z increases, set power_out to 0 and append the last item
-            if in_situ_dwell:
-                z_inc_arr.append(i-1)
-            t_roller.append(t_out[i-1])
-            z_roller.append(z_out[i-1])
-            power_out[i-2] = 0.0
 
-    # end by appending the last item and a final 0 for power
-    t_roller.append(t_out[i])
-    z_roller.append(z_out[i])
-    power_out[i-1] = 0.0
-
+# Adjust time output array by dwell time variables if option is set
 if in_situ_dwell:
-    # initialize wiper arrays
-    t_wiper = [0.0]
-    z_wiper = list()
-    for i in range(len(t_roller)):
-        if i == len(t_roller) - 1:
-            # required since we're using index + 1
-            break
-        t_wiper.append(t_roller[i]+i_dwell+w_dwell*(i))
-        t_wiper.append(t_roller[i+1]+w_dwell+w_dwell*(i))
-        z_wiper.append(z_roller[i])
-        z_wiper.append(z_roller[i])
-    del (t_wiper[-1])
-
+    # stores indices at which the z value jumps
+    z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
     # adding dwell time to time array
     t_out += i_dwell # increment whole t_out array by i_dwell
     for ind in z_inc_arr:
         # at all places where z increases, add w_dwell to whole array including and proceeding that position
         t_out[ind:] += w_dwell
+    
+# The following develops the wiper event series from laser position data and constructs the output power array. 
+# The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
+if roller:
+    # initialize roller arrays
+    t_roller = [t_out[0]]
+    z_roller = list()
+    for i in z_inc_arr:
+            # when z increases, append the last item
+            t_roller.append(t_out[i-1])
+            z_roller.append(z_out[i-1])
+
+    # end by appending the last item
+    t_roller.append(t_out[i])
+    z_roller.append(z_out[i])
+
+if in_situ_dwell:
+    # utilize itertools to produce flattened arrays transformed with the expected dwell times
+    t_wiper = chain.from_iterable((t_roller[i]+i_dwell+w_dwell*(i), t_roller[i+1]+w_dwell+w_dwell*(i)) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
+    z_wiper = chain.from_iterable((z_roller[i], z_roller[i]) for i in range(len(z_roller)))
+    # need to truncate extra values from above process
+    t_wiper = [0.0] + list(t_wiper)[:-3]
+    z_wiper = list(z_wiper)
 
 # exporting laser event series##
 with open(Lfile, 'w', newline='') as csvfile:
