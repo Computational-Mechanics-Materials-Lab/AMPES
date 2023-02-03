@@ -357,7 +357,7 @@ if in_situ_dwell:
     for ind in z_inc_arr:
         # at all places where z increases, add w_dwell to whole array including and proceeding that position
         t_out[ind:] += w_dwell
-    
+ 
 # The following develops the wiper event series from laser position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 if roller:
@@ -366,19 +366,20 @@ if roller:
     z_roller = list()
     for i in z_inc_arr:
             # when z increases, append the last item
-            t_roller.append(t_out[i-1])
-            z_roller.append(z_out[i-1])
+            t_roller.append(t_out[i])
+            z_roller.append(z_out[i+2])
 
     # end by appending the last item
     t_roller.append(t_out[i])
-    z_roller.append(z_out[i])
+    z_roller = [z_out[0]] + z_roller
+
 
     if in_situ_dwell:
         # utilize itertools to produce flattened arrays transformed with the expected dwell times
-        t_wiper = chain.from_iterable((t_roller[i]+i_dwell+w_dwell*(i), t_roller[i+1]+w_dwell+w_dwell*(i)) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
+        t_wiper = chain.from_iterable((t_roller[i]-i_dwell, t_roller[i]) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
         z_wiper = chain.from_iterable((z_roller[i], z_roller[i]) for i in range(len(z_roller)))
         # need to truncate extra values from above process
-        t_wiper = [0.0] + list(t_wiper)[:-3]
+        t_wiper = list(t_wiper)[:-2]
         z_wiper = list(z_wiper)
 
 # exporting laser event series##
