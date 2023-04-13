@@ -57,6 +57,12 @@ parser.add_argument("-o", "--outfile_name", help="Basename for the files that wi
 
 args = parser.parse_args()
 
+def get_idx_from_ranges(num: int, ranges: list):
+    for i in range(len(ranges)):
+        if num in ranges[i]:
+            return i
+    return -1
+
 # Process Parameters
 # All are set from the config provided as an argument
 
@@ -65,25 +71,37 @@ with open(args.config, "r") as config_file:
     config = yaml.safe_load(config_file)
 
 #TODO: Input verification
-FGM = config["FGM"]
-# Load certain variables given FGM
-if FGM:
-    scan_speed_FGM = config["scan_speed_FGM"]
-    laser_power_FGM = config["laser_power_FGM"]
-else:
-    scan_speed = config["scan_speed"]
-    laser_power = config["laser_power"]
+
+# load variables not defined in layer_groups
 #step = 0.1  # time step in seconds - maybe exposure time
 interval = config["interval"]
-layer_height = config["layer_height"]
 i_dwell = config["i_dwell"]
-w_dwell = config["w_dwell"]
+layer_height = config["layer_height"]
 roller = config["roller"]
 in_situ_dwell = config["in_situ_dwell"]
 process_param_request = config["process_param_request"]
 substrate = config["substrate"]
 output_request = config["output_request"]
 sample_point_count = config["sample_point_count"]
+
+# load layer_groups variable
+layer_groups = config["layer_groups"]
+layer_group_keys = layer_groups.keys()
+layer_group_list = list(layer_groups.values())
+group_flag = False # boolean flag for if there is more than one group
+if len(layer_group_list) > 1 or "layers" in layer_group_list[0].keys():
+    # get ranges from the intervals in layer_groups
+    group_flag = True 
+    intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]) for layer_group in layer_group_list]
+else:
+    # handles the case of a single layer group
+    #TODO: Implement consistent behavior regarding layer intervals so that the user is able to truncate output
+    layer_group = list(layer_groups.values())[0]
+    infill_scan_speed = layer_group["infill"]["scan_speed"]
+    contour_scan_speed = layer_group["contour"]["scan_speed"]
+    infill_laser_power = layer_group["infill"]["laser_power"]
+    contour_laser_power = layer_group["contour"]["laser_power"]
+    w_dwell = layer_group["w_dwell"]
 
 # org_shift used if event series origin is not the same as mesh origin
 xorg_shift = config["xorg_shift"]
@@ -111,10 +129,11 @@ z_wiper = []
 basename = args.outfile_name
 output_dir = args.output_dir
 filename_start = os.path.join(output_dir, basename)
-Lfile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + ".inp"
-Rfile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + "_roller.inp"
-Tfile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + "_process_parameter.csv"
-Ofile = filename_start + '_' + str(w_dwell) + '_' + str(layer_height) + "_output_times.inp"
+#TODO: Change this for layer groups.
+Lfile = filename_start + '_' + "testing" + '_' + str(layer_height) + ".inp"
+Rfile = filename_start + '_' + "testing" + '_' + str(layer_height) + "_roller.inp"
+Tfile = filename_start + '_' + "testing" + '_' + str(layer_height) + "_process_parameter.csv"
+Ofile = filename_start + '_' + "testing" + '_' + str(layer_height) + "_output_times.inp"
 
 # update path + directory name to match your configuration. This configuration assumes you will have your gcode
 # within a directory adjacent to where the code will be run called "gcodes" and that you would like your result files
@@ -131,236 +150,161 @@ y_coord = 0.0
 linestring = ''
 
 # reading in gcode files for FGM part
-if FGM:
-    for gcodes in os.listdir(gcode_files_path):  # need to develop way to start from bot to top of part
-        # more variables needed for reading gcodes. These will be reset for each gcode file read
+pattern = re.compile(r"[XYZFE]-?\d+\.?\d*") # matching pattern for coordinate strings
+#TODO: Set up some values that are written into docs for these
+infill_f_val = 60000 # expected gcode F value for infill region
+contour_f_val = 1800 # expected gcode F value for contour region
+gcode_file_list = os.listdir(gcode_files_path)
+if not any("gcode" in file for file in gcode_file_list):
+    # Check to see if a gcode file is in the given path
+    print("Error: No gcode files found in input directory {}".format(gcode_files_path))
+    exit(-1)
+for file in gcode_file_list:
+    if file[-5:] == "gcode":
+        print("Reading gcode file")
+        # more variables needed for reading gcodes
         x = []
         y = []
         z = []
+        f = []
         z_posl = []
         power = []
         z_pos = 0
-        if gcodes[-5:] == "gcode":
-            # Assigning scan speed for current gcode
-            vel = scan_speed_FGM[gcode_count]
-            with open(os.path.join(gcode_files_path, gcodes), 'r') as file:
-                lines = []
-                # removing white spaces on lines with G1
-                for line in file:
-                    if line.startswith("G1"):  # only reads movement commands(G1 ...)
-                        lines.append(line.rstrip())
-            # Replacing ; with single space and splitting into list
-            for line in lines:
-                line = line.replace(';', ' ').split()
-                p = 0
-                while p < len(line):
-                    linestring += line[p]
-                    p += 1
-                # If extrusion and movement command found, append power value
-                if linestring.find("E") != -1 and linestring.find("X") != -1:
-                    power.append(laser_power_FGM[gcode_count])
-                # If movement but no extrusion, append power of zero
-                elif linestring.find("X") != -1 and linestring.find("E") == -1:
-                    power.append(0.0)
-
-                # Add coordinates to corresponding arrays # changed linestring here
-                for item in line:
-                    item = ''.join(c for c in item if c.isdigit() or c == "-" or c == "." or c == "X" or
-                                                                                    c == "Y" or c == "Z" or c == "E")
-                    if item.startswith("X"):
+        with open(os.path.join(gcode_files_path, file), 'r') as gcode_file:
+            lines = []
+            # removing white spaces on lines with G1
+            for line in gcode_file:
+                if line.startswith("G1"):  # only reads movement commands(G1 ...)
+                    lines.append(line.rstrip())
+        # Replacing ; with single space and splitting into list
+        for line in lines:
+            line = line.replace(';', ' ').split()
+            # Add coordinates to corresponding arrays # changed linestring here
+            for item in line:
+                if pattern.fullmatch(item):
+                    if item[0] == "X":
                         x.append(float(item[1:]))
+                        f.append(curr_f)
                         z_pos += 1
-                        continue
-                    if item.startswith("Y"):
+                    elif item[0] == "Y":
                         y.append(float(item[1:]))
-                        continue
-                    if item.startswith("Z"):
+                    elif item[0] == "Z":
                         z.append(float(item[1:]))
+                        if group_flag:
+                            group_idx = get_idx_from_ranges(len(z)-1, intervals)
+                            if group_idx == -1:
+                                # break at z value since we don't want to record past a layer jump outside of ranges
+                                break
                         z_posl.append(z_pos)  # Count of z positions per layer
-                        continue
-
-    # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
-    # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
-    # the position command value is reached, it goes to the next value
-
-            z_coord = z[1]; j = 2
-            for i in range(1, len(x)):
-                 del_x = x[i] - x[i-1]  # incremental change in x
-                 del_y = y[i] - y[i-1]  # incremental change in y
-                 # determining time to move between points based on xy data and velocity
-                
-                 del_d = math.sqrt(pow(del_x,2) + pow(del_y,2))
-                 del_t = del_d/vel
-         
-                 inst = del_t / interval  # creating instant value to increase number of time points evenly
-                 x_add = del_x / interval  # incremental point distance that will sum to del_x based on step
-                 y_add = del_y / interval  # incremental point distance that will sum to del_y based on step
-                 k = 0
-        
-                 while k <= interval:
-                     if k == 0:
-                         if i == 1:
-                             x_coord = x[i - 1]
-                             y_coord = y[i - 1]
-                         else:
-                             k += 1
-                             continue
-                     elif k != 0 and k != interval:
-                         x_coord += x_add
-                         y_coord += y_add
-                     elif k == interval:
-                         x_coord = x[i]
-                         y_coord = y[i]
-                     x_out.append(x_coord)
-                     y_out.append(y_coord)
-                     z_out.append(z_coord)
-                     power_out.append(power[i])
-                     time += inst
-                     t_out.append(time)
-                     k += 1
-                 # Recording gcode converted values of x, y, z, power, and time to output arrays
-                 if j < len(z_posl): #if j is less than the total number of layers in the build
-                     if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
-                         del_z = layer_height
-                         t = del_z / vel
-                         inst = t / interval
-                         z_add = del_z / interval
-
-                         z_coord = z[j-1]
-                         x_out.append(x_coord)
-                         y_out.append(y_coord)
-                         z_out.append(z_coord)
-                         power_out.append(power[i])
-                         time += inst
-                         t_out.append(time)
-                         
-                         z_coord = z[j]
-                         x_out.append(x_coord)
-                         y_out.append(y_coord)
-                         z_out.append(z_coord)
-                         power_out.append(power[i])
-                         time += inst
-                         t_out.append(time)
-
-                         j += 1
-            gcode_count += 1
-
-# reading in gcode files for non FGM part
-else:
-    # print ("here")
-    pattern = re.compile(r"[XYZFE]-?\d+\.?\d*") # matching pattern for coordinate strings
-    for gcodes in os.listdir(gcode_files_path):
-        if gcodes[-5:] == "gcode":
-            # more variables needed for reading gcodes
-            x = []
-            y = []
-            z = []
-            f = []
-            z_posl = []
-            power = []
-            z_pos = 0
-            curr_f = 0
-            max_f = 54000 # TODO:REMOVE THIS LATER
-                # Assigning scan speed for current gcode
-            vel = scan_speed
-            with open(os.path.join(gcode_files_path, gcodes), 'r') as file:
-                lines = []
-                # removing white spaces on lines with G1
-                for line in file:
-                    if line.startswith("G1"):  # only reads movement commands(G1 ...)
-                        lines.append(line.rstrip())
-            # Replacing ; with single space and splitting into list
-            for line in lines:
-                line = line.replace(';', ' ').split()
-                # Add coordinates to corresponding arrays # changed linestring here
-                for item in line:
-                    if pattern.fullmatch(item):
-                        if item[0] == "X":
-                            x.append(float(item[1:]))
-                            f.append(curr_f)
-                            z_pos += 1
-                        elif item[0] == "Y":
-                            y.append(float(item[1:]))
-                        elif item[0] == "Z":
-                            z.append(float(item[1:]))
-                            z_posl.append(z_pos)  # Count of z positions per layer
-                        elif item[0] == "F":
-                            curr_f = float(item[1:])
-                if "X" in "".join(line):
-                    if "E" in "".join(line):
-                        power.append(laser_power * (curr_f/max_f)) # TODO:change this to reflect user input for contour and infil
+                    elif item[0] == "F":
+                        curr_f = float(item[1:])
+            if group_flag and group_idx == -1:
+                break
+            if "X" in "".join(line):
+                if "E" in "".join(line):
+                    if group_flag:
+                        infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
+                        contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
+                    if curr_f == infill_f_val:
+                        power.append(infill_laser_power) 
+                    elif curr_f == contour_f_val:
+                        power.append(contour_laser_power) 
                     else:
-                        power.append(0)
+                        print("ERROR: gcode contains unexpected F values. Verify that the speed used is X for infill region and X for contour region.")
+                        exit(-1)
+                else:
+                    power.append(0)
 
+# Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
+# the incremental movement in each direction and then added to the previous value to give the next coordinate. When
+# the position command value is reached, it goes to the next value
 
-    # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
-    # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
-    # the position command value is reached, it goes to the next value
+z_coord = z[1]; j = 2
+x_out = np.array([x[0]])
+y_out = np.array([y[0]])
+z_out = np.array([z[1]])
+power_out = np.array([0])
+t_out = np.array([time])
+print("Populating event series output")
+for i in range(1, len(x)):
+    if group_flag:
+        group_idx = get_idx_from_ranges(j-2, intervals) 
+        if group_idx == -1:
+            break
+        infill_scan_speed = layer_group_list[group_idx]["infill"]["scan_speed"]
+        contour_scan_speed = layer_group_list[group_idx]["contour"]["scan_speed"]
 
-            z_coord = z[1]; j = 2
-            x_out = np.array([x[0]])
-            y_out = np.array([y[0]])
-            z_out = np.array([z[1]])
-            power_out = np.array([0])
-            t_out = np.array([time])
-            for i in range(1, len(x)):
-                del_x = x[i] - x[i-1]  # incremental change in x
-                del_y = y[i] - y[i-1]  # incremental change in y
-                # determining time to move between points based on xy data and velocity
-                
-                del_d = math.sqrt(pow(del_x,2) + pow(del_y,2))
+    del_x = x[i] - x[i-1]  # incremental change in x
+    del_y = y[i] - y[i-1]  # incremental change in y
+    # determining time to move between points based on xy data and velocity
+    
+    del_d = math.sqrt(pow(del_x,2) + pow(del_y,2))
 
-                vel = f[i]/60
-                del_t = del_d/vel
+    vel = infill_scan_speed if f[i] == infill_f_val else contour_scan_speed
+    del_t = del_d/vel
 
-                # add interpolated values to output arrays
-                tmp_x = np.linspace(x[i-1], x[i], interval+1)
-                tmp_y = np.linspace(y[i-1], y[i], interval+1)
-                tmp_z = [z_coord]*(interval+1)
-                tmp_p = [power[i]]*(interval+1)
-                tmp_t = np.linspace(time, time+del_t, interval+1)
-                x_out = np.concatenate([x_out[:-1], tmp_x])
-                y_out = np.concatenate([y_out[:-1], tmp_y])
-                z_out = np.concatenate([z_out[:-1], tmp_z])
-                power_out = np.concatenate([power_out[:-1], tmp_p])
-                t_out = np.concatenate([t_out[:-1], tmp_t])
+    # add interpolated values to output arrays
+    tmp_x = np.linspace(x[i-1], x[i], interval+1)
+    tmp_y = np.linspace(y[i-1], y[i], interval+1)
+    tmp_z = [z_coord]*(interval+1)
+    tmp_p = [power[i]]*(interval+1)
+    tmp_t = np.linspace(time, time+del_t, interval+1)
+    x_out = np.concatenate([x_out[:-1], tmp_x])
+    y_out = np.concatenate([y_out[:-1], tmp_y])
+    z_out = np.concatenate([z_out[:-1], tmp_z])
+    power_out = np.concatenate([power_out[:-1], tmp_p])
+    t_out = np.concatenate([t_out[:-1], tmp_t])
 
-                time += del_t
-                
-                # Recording gcode converted values of x, y, z, power, and time to output arrays
-                # This step occurs to assist the user for reading the output event series. The z-jump could take place with no points in between if desired
-                if j < len(z_posl): #if j is less than the total number of layers in the build
-                    if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
-                        # peform a z jump of layer_height distance
-                        del_z = layer_height
+    time += del_t
+    
+    # Recording gcode converted values of x, y, z, power, and time to output arrays
+    # This step occurs to assist the user for reading the output event series. The z-jump could take place with no points in between if desired
+    if j < len(z_posl): #if j is less than the total number of layers in the build
+        if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
+            # peform a z jump of layer_height distance
+            del_z = layer_height
 
-                        # get current z, add height to it
-                        curr_z = z_out[-1]
-                        tmp_z = np.array([curr_z, curr_z + del_z])
-                        z_out = np.concatenate([z_out, tmp_z])
-                        # copy x-y values for the jump since it is stationary
-                        x_out = np.concatenate([x_out, [x_out[-1]]*2])
-                        y_out = np.concatenate([y_out, [y_out[-1]]*2])
-                        power_out = np.concatenate([power_out, [0]*2])
-                        t_out = np.concatenate([t_out, [t_out[-1]]*2])
+            # get current z, add height to it
+            curr_z = z_out[-1]
+            tmp_z = np.array([curr_z, curr_z + del_z])
+            z_out = np.concatenate([z_out, tmp_z])
+            # copy x-y values for the jump since it is stationary
+            x_out = np.concatenate([x_out, [x_out[-1]]*2])
+            y_out = np.concatenate([y_out, [y_out[-1]]*2])
+            power_out = np.concatenate([power_out, [0]*2])
+            t_out = np.concatenate([t_out, [t_out[-1]]*2])
 
-                        z_coord += layer_height
-                        j += 1
-                        
+            z_coord += layer_height
+            j += 1
+            
 # stores indices at which the z value jumps
 z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
 
 # Adjust time output array by dwell time variables if option is set
 if in_situ_dwell:
-   # adding dwell time to time array
+    print("Adjusting output times for in-situ dwell")
     t_out += i_dwell # increment whole t_out array by i_dwell
-    for ind in z_inc_arr:
-        # at all places where z increases, add w_dwell to whole array including and proceeding that position
-        t_out[ind:] += w_dwell
- 
+    if group_flag:
+        for i in range(len(z_inc_arr)):
+            group_idx = get_idx_from_ranges(z_inc_arr[i], intervals)
+            if group_idx == -1:
+                break
+            w_dwell = layer_group_list[group_idx]["w_dwell"]
+            if i < len(z_inc_arr) - 1:
+                t_out[z_inc_arr[i]:z_inc_arr[i+1]] += w_dwell
+            else:
+                t_out[z_inc_arr[i]:] += w_dwell
+    else:
+        for ind in z_inc_arr:
+            # at all places where z increases, add w_dwell to whole array including and proceeding that position
+            t_out[ind:] += w_dwell
+else:
+    print("Skipping in-situ dwell")
+
 # The following develops the wiper event series from laser position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 if roller:
+    print("Creating roller output")
     # initialize roller arrays
     t_roller = [t_out[0]]
     z_roller = list()
@@ -373,7 +317,6 @@ if roller:
     t_roller.append(t_out[i])
     z_roller = [z_out[0]] + z_roller
 
-
     if in_situ_dwell:
         # utilize itertools to produce flattened arrays transformed with the expected dwell times
         t_wiper = chain.from_iterable((t_roller[i]-i_dwell, t_roller[i]) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
@@ -381,6 +324,8 @@ if roller:
         # need to truncate extra values from above process
         t_wiper = list(t_wiper)[:-2]
         z_wiper = list(z_wiper)
+else:
+    print("Skipping roller output")
 
 # exporting laser event series##
 with open(Lfile, 'w', newline='') as csvfile:
@@ -455,17 +400,19 @@ if output_request:
 
 # Exporting process parameters used in this run
 if process_param_request:
+    #TODO: Must adjust process parameters for layer groups
     with open(Tfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         date_time = ["Developed {} at {}".format(e.strftime("%Y/%d/%m"), e.strftime("%H:%M"))]
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         position_writer.writerow(header)
-        if not FGM:
-            row1 = ["velocity", scan_speed, "mm/s"]
-            row2 = ["Laser Power", laser_power, "mW"]
-            position_writer.writerow(row1)
-            position_writer.writerow(row2)
+        write_rows = []
+        if not group_flag:
+            write_rows.append(["infill velocity", infill_scan_speed, "mm/s"])
+            write_rows.append(["contour velocity", contour_scan_speed, "mm/s"])
+            write_rows.append(["Infill Laser Power", infill_laser_power, "mW"])
+            write_rows.append(["Contour Laser Power", contour_laser_power, "mW"])
         else:
             for i in range(gcode_count):
                 row1 = []
@@ -476,23 +423,18 @@ if process_param_request:
                 row2.append(laser_power_FGM[i])
                 row1.append("mm/s")
                 row2.append("mW")
-                position_writer.writerow(row1)
-                position_writer.writerow(row2)
-        row3 = ["Intervals", interval, "#"]
-        position_writer.writerow(row3)
-        row4 = ["Layer Height", layer_height, "mm"]
-        position_writer.writerow(row4)
-        row5 = ["Substrate Thickness", substrate, "mm"]
-        position_writer.writerow(row5)
-        row6 = ["Initial Dwell Time", i_dwell, "s"]
-        position_writer.writerow(row6)
-        row7 = ["Dwell Time", w_dwell, "s"]
-        position_writer.writerow(row7)
-        row8 = ["Origin Shift in X", xorg_shift, "mm"]
-        position_writer.writerow(row8)
-        row9 = ["Origin Shift in Y", yorg_shift, "mm"]
-        position_writer.writerow(row9)
-        row10 = ["Origin Shift in Z", zorg_shift, "mm"]
-        position_writer.writerow(row10)
+                
+                
+        write_rows.append(["Intervals", interval, "#"])
+        write_rows.append(["Layer Height", layer_height, "mm"])
+        write_rows.append(["Substrate Thickness", substrate, "mm"])
+        write_rows.append(["Initial Dwell Time", i_dwell, "s"])
+        write_rows.append(["Dwell Time", w_dwell, "s"])
+        write_rows.append(["Origin Shift in X", xorg_shift, "mm"])
+        write_rows.append(["Origin Shift in Y", yorg_shift, "mm"])
+        write_rows.append(["Origin Shift in Z", zorg_shift, "mm"])
+        for row in write_rows:
+            position_writer.writerow(row)
+        
 
 print("Complete" + "\n")

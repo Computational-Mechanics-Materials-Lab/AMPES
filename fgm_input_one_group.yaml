@@ -1,0 +1,32 @@
+# Testing input yaml to see if it will work for one group of layers for the full print
+
+# Process Parameters
+# Set FGM to true and use FGM variables if a functionally graded material is to be modeled. Otherwise, set FGM to false,
+# neglect scan_speed_FGM and laser_power_FGM, and use scan_speed and laser_power
+layer_groups: 
+  group_one:
+    # layers: [1, 15] # interval of layers in the group
+    infill:
+      scan_speed: 1000
+      laser_power: 4000000
+    contour:
+      scan_speed: 500
+      laser_power: 2000000
+    # only relevant if in_situ_dwell is true
+    w_dwell: 10.0
+
+in_situ_dwell: true
+i_dwell: 8.0
+interval: 1 # number of points you would like to have between all points from gcode
+layer_height: 0.1  # layer height in mm
+roller: true  # if a roller event series is needed, set to true
+process_param_request: false  # if a text file with process parameters is desired, set to true
+substrate: 0.05  # substrate height in mm. Use if substrate was used in gcode development
+output_request: false # set to one if you want to create output points based on the event series
+sample_point_count: 1  # set this to the number of output points you want from scanning
+
+# org_shift used if event series origin is not the same as mesh origin
+xorg_shift: 0.0
+yorg_shift: 0.0
+zorg_shift: 0.0
+
