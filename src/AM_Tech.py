@@ -284,20 +284,13 @@ z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
 if in_situ_dwell:
     print("Adjusting output times for in-situ dwell")
     t_out += i_dwell # increment whole t_out array by i_dwell
-    if group_flag:
-        for i in range(len(z_inc_arr)):
-            group_idx = get_idx_from_ranges(z_inc_arr[i], intervals)
+    for i in range(len(z_inc_arr)):
+        if group_flag:
+            group_idx = get_idx_from_ranges(i, intervals)
             if group_idx == -1:
                 break
             w_dwell = layer_group_list[group_idx]["w_dwell"]
-            if i < len(z_inc_arr) - 1:
-                t_out[z_inc_arr[i]:z_inc_arr[i+1]] += w_dwell
-            else:
-                t_out[z_inc_arr[i]:] += w_dwell
-    else:
-        for ind in z_inc_arr:
-            # at all places where z increases, add w_dwell to whole array including and proceeding that position
-            t_out[ind:] += w_dwell
+        t_out[z_inc_arr[i]:] += w_dwell
 else:
     print("Skipping in-situ dwell")
 
