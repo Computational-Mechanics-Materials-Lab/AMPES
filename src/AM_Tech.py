@@ -150,10 +150,10 @@ y_coord = 0.0
 linestring = ''
 
 # reading in gcode files for FGM part
-pattern = re.compile(r"[XYZFE]-?\d+\.?\d*") # matching pattern for coordinate strings
+pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 #TODO: Set up some values that are written into docs for these
 infill_f_val = 60000 # expected gcode F value for infill region
-contour_f_val = 1800 # expected gcode F value for contour region
+contour_f_val = 30000 # expected gcode F value for contour region
 gcode_file_list = os.listdir(gcode_files_path)
 if not any("gcode" in file for file in gcode_file_list):
     # Check to see if a gcode file is in the given path
@@ -201,7 +201,7 @@ for file in gcode_file_list:
             if group_flag and group_idx == -1:
                 break
             if "X" in "".join(line):
-                if "E" in "".join(line):
+                if curr_f != 2524140 and "E" in "".join(line):
                     if group_flag:
                         infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
                         contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
