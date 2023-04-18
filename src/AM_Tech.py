@@ -201,7 +201,7 @@ for file in gcode_file_list:
             if group_flag and group_idx == -1:
                 break
             if "X" in "".join(line):
-                if curr_f != 2524140 and "E" in "".join(line):
+                if "E" in "".join(line):
                     if group_flag:
                         infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
                         contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
