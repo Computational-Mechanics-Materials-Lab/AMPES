@@ -46,6 +46,7 @@ import shutil
 import math
 import re
 from itertools import chain
+from sys import exit
 
 # Argument Parsing 
 cwd = os.getcwd()
@@ -56,6 +57,37 @@ parser.add_argument("-d", "--output_dir", help="Directory to output files to, de
 parser.add_argument("-o", "--outfile_name", help="Basename for the files that will be outputted, defaults to \"output\"", default="output")
 
 args = parser.parse_args()
+
+def perturb(input_arr, dev, type='gaussian'):
+    """
+    # This is a function to perturb an array of values by a given amount. Currently supports a gaussian/normal
+    # distribution with type='gaussian', a strict +/- with type='strict', and uniform with type='uniform'.
+    :param input_arr: array or list of power values
+    :param dev: deviation to add or subtract from the laser power
+    :param type: type of perturbation. options are gaussian/normal distribution around the dev value or strict
+    for +/- dev value
+    :return: perturbed array
+    """
+    arr = np.array(input_arr)
+    vals = 0
+
+    rng = np.random.default_rng()
+    if type == 'gaussian':
+        vals = rng.normal(scale=1.0, size=arr.shape)
+        vals *= dev
+
+    elif type == 'strict':
+        vals = rng.integers(low=-1, high=2, size=arr.shape)
+        vals *= dev
+
+    elif type == 'uniform':
+        vals = rng.uniform(low=-1, high=1.0, size=arr.shape)
+        vals *= dev
+
+    elif type == 'none':
+        vals = np.zeros(arr.shape)
+
+    return arr + vals
 
 def get_idx_from_ranges(num: int, ranges: list):
     for i in range(len(ranges)):
@@ -83,6 +115,9 @@ process_param_request = config["process_param_request"]
 substrate = config["substrate"]
 output_request = config["output_request"]
 sample_point_count = config["sample_point_count"]
+power_fluc = config["power_fluctation"]
+deviation = config["deviation"]
+scheme = config["scheme"]
 
 # load layer_groups variable
 layer_groups = config["layer_groups"]
@@ -158,7 +193,7 @@ gcode_file_list = os.listdir(gcode_files_path)
 if not any("gcode" in file for file in gcode_file_list):
     # Check to see if a gcode file is in the given path
     print("Error: No gcode files found in input directory {}".format(gcode_files_path))
-    exit(-1)
+    exit(1)
 for file in gcode_file_list:
     if file[-5:] == "gcode":
         print("Reading gcode file")
@@ -201,7 +236,9 @@ for file in gcode_file_list:
             if group_flag and group_idx == -1:
                 break
             if "X" in "".join(line):
-                if "E" in "".join(line):
+                #TODO: Investigate the extrusions at bridge speed and determine a solution to handling them
+                # currently handling bridge speed extrusions by having them append 0 to power array
+                if curr_f != 2524140 and "E" in "".join(line):
                     if group_flag:
                         infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
                         contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
@@ -211,7 +248,7 @@ for file in gcode_file_list:
                         power.append(contour_laser_power) 
                     else:
                         print("ERROR: gcode contains unexpected F values. Verify that the speed used is X for infill region and X for contour region.")
-                        exit(-1)
+                        exit(1)
                 else:
                     power.append(0)
 
@@ -319,6 +356,12 @@ if roller:
         z_wiper = list(z_wiper)
 else:
     print("Skipping roller output")
+
+if power_fluc:
+    print("Applying {} scheme to fluctuate power".format(scheme))
+    power_out = perturb(power_out, deviation, type=scheme)
+else:
+    print("Skipping power fluctuation")
 
 # exporting laser event series##
 with open(Lfile, 'w', newline='') as csvfile:
