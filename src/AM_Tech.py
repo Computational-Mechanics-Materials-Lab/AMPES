@@ -207,9 +207,9 @@ for file in gcode_file_list:
         z_pos = 0
         with open(os.path.join(gcode_files_path, file), 'r') as gcode_file:
             lines = []
-            # removing white spaces on lines with G1
+            # removing white spaces on lines with G1 or G0
             for line in gcode_file:
-                if line.startswith("G1"):  # only reads movement commands(G1 ...)
+                if line.startswith("G1") or line.startswith("G0"):  # only reads movement commands
                     lines.append(line.rstrip())
         # Replacing ; with single space and splitting into list
         for line in lines:
