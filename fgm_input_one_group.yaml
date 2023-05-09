@@ -13,10 +13,11 @@ layer_groups:
       scan_speed: 500
       laser_power: 2000000
     # only relevant if in_situ_dwell is true
-    w_dwell: 10.0
+    interlayer_dwell: 10.0
 
 in_situ_dwell: true
-i_dwell: 8.0
+heatup_time: 8.0
+w_dwell: 8.0
 interval: 5 # number of points you would like to have between all points from gcode
 power_fluctuation: true
 deviation: 300

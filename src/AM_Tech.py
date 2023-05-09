@@ -93,7 +93,7 @@ def get_idx_from_ranges(num: int, ranges: list):
     for i in range(len(ranges)):
         if num in ranges[i]:
             return i
-    return -1
+    return False
 
 # Process Parameters
 # All are set from the config provided as an argument
@@ -107,7 +107,8 @@ with open(args.config, "r") as config_file:
 # load variables not defined in layer_groups
 #step = 0.1  # time step in seconds - maybe exposure time
 interval = config["interval"]
-i_dwell = config["i_dwell"]
+w_dwell = config["w_dwell"]
+heatup_time = config["heatup_time"]
 layer_height = config["layer_height"]
 roller = config["roller"]
 in_situ_dwell = config["in_situ_dwell"]
@@ -115,7 +116,7 @@ process_param_request = config["process_param_request"]
 substrate = config["substrate"]
 output_request = config["output_request"]
 sample_point_count = config["sample_point_count"]
-power_fluc = config["power_fluctation"]
+power_fluc = config["power_fluctuation"]
 deviation = config["deviation"]
 scheme = config["scheme"]
 
@@ -127,7 +128,7 @@ group_flag = False # boolean flag for if there is more than one group
 if len(layer_group_list) > 1 or "layers" in layer_group_list[0].keys():
     # get ranges from the intervals in layer_groups
     group_flag = True 
-    intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]) for layer_group in layer_group_list]
+    intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]+1) for layer_group in layer_group_list]
 else:
     # handles the case of a single layer group
     #TODO: Implement consistent behavior regarding layer intervals so that the user is able to truncate output
@@ -136,7 +137,7 @@ else:
     contour_scan_speed = layer_group["contour"]["scan_speed"]
     infill_laser_power = layer_group["infill"]["laser_power"]
     contour_laser_power = layer_group["contour"]["laser_power"]
-    w_dwell = layer_group["w_dwell"]
+    interlayer_dwell = layer_group["interlayer_dwell"]
 
 # org_shift used if event series origin is not the same as mesh origin
 xorg_shift = config["xorg_shift"]
@@ -320,14 +321,14 @@ z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
 # Adjust time output array by dwell time variables if option is set
 if in_situ_dwell:
     print("Adjusting output times for in-situ dwell")
-    t_out += i_dwell # increment whole t_out array by i_dwell
+    t_out += heatup_time # increment whole t_out array by heatup time
     for i in range(len(z_inc_arr)):
         if group_flag:
             group_idx = get_idx_from_ranges(i, intervals)
             if group_idx == -1:
                 break
-            w_dwell = layer_group_list[group_idx]["w_dwell"]
-        t_out[z_inc_arr[i]:] += w_dwell
+            interlayer_dwell = layer_group_list[group_idx]["interlayer_dwell"]
+        t_out[z_inc_arr[i]:] += interlayer_dwell
 else:
     print("Skipping in-situ dwell")
 
@@ -349,7 +350,7 @@ if roller:
 
     if in_situ_dwell:
         # utilize itertools to produce flattened arrays transformed with the expected dwell times
-        t_wiper = chain.from_iterable((t_roller[i]-i_dwell, t_roller[i]) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
+        t_wiper = chain.from_iterable((t_roller[i]-w_dwell, t_roller[i]) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
         z_wiper = chain.from_iterable((z_roller[i], z_roller[i]) for i in range(len(z_roller)))
         # need to truncate extra values from above process
         t_wiper = list(t_wiper)[:-2]
@@ -386,7 +387,7 @@ if roller:
 # creating temperature output write times for at the end of the print phase for each layer
 #TODO: Refactor while loops into for loops in the proceeding functions
 if output_request:
-    in_time = i_dwell
+    in_time = heatup_time
     output_scan = []
     increment_sample_points = 0
     q = 1
@@ -442,30 +443,44 @@ if process_param_request:
         date_time = ["Developed {} at {}".format(e.strftime("%Y/%d/%m"), e.strftime("%H:%M"))]
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
-        position_writer.writerow(header)
         write_rows = []
         if not group_flag:
-            write_rows.append(["infill velocity", infill_scan_speed, "mm/s"])
-            write_rows.append(["contour velocity", contour_scan_speed, "mm/s"])
+            write_rows.append(header)
+            write_rows.append(["Infill Velocity", infill_scan_speed, "mm/s"])
             write_rows.append(["Infill Laser Power", infill_laser_power, "mW"])
+            write_rows.append(["Contour Velocity", contour_scan_speed, "mm/s"])
             write_rows.append(["Contour Laser Power", contour_laser_power, "mW"])
+            write_rows.append(["Interlayer Dwell Time", interlayer_dwell, "s"])
         else:
-            for i in range(gcode_count):
-                row1 = []
-                row2 = []
-                row1.append("velocity " + str(i+1))
-                row2.append("Laser Power " + str(i+1))
-                row1.append(scan_speed_FGM[i])
-                row2.append(laser_power_FGM[i])
-                row1.append("mm/s")
-                row2.append("mW")
-                
-                
+            for group_name, group_params in config["layer_groups"].items():
+                write_rows.append([])
+                write_rows.append(["##Layer group", group_name])
+                write_rows.append(header)
+                for key, value in group_params.items():
+                    match key:
+                        case "layers":
+                            write_rows.append(["Layers in Group", value, "count"])
+                        case "infill":
+                            write_rows.append(["Infill Velocity", value["scan_speed"], "mm/s"])
+                            write_rows.append(["Infill Laser Power", value["laser_power"], "mW"])
+                        case "contour":
+                            write_rows.append(["Contour Velocity", value["scan_speed"], "mm/s"])
+                            write_rows.append(["Contour Laser Power", value["laser_power"], "mW"])
+                        case "interlayer_dwell":
+                            write_rows.append(["Dwell Time", value, "s"])
+        
+        if roller:
+            write_rows.append([])
+            write_rows.append(["##Roller parameters"])
+            write_rows.append(header)
+            write_rows.append(["Roller time", w_dwell, "s"])
+
+        write_rows.append([])
+        write_rows.append(["##Overall parameters"])
         write_rows.append(["Intervals", interval, "#"])
         write_rows.append(["Layer Height", layer_height, "mm"])
         write_rows.append(["Substrate Thickness", substrate, "mm"])
-        write_rows.append(["Initial Dwell Time", i_dwell, "s"])
-        write_rows.append(["Dwell Time", w_dwell, "s"])
+        write_rows.append(["Initial Heatup Time", heatup_time, "s"])
         write_rows.append(["Origin Shift in X", xorg_shift, "mm"])
         write_rows.append(["Origin Shift in Y", yorg_shift, "mm"])
         write_rows.append(["Origin Shift in Z", zorg_shift, "mm"])
