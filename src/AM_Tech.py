@@ -457,17 +457,18 @@ if process_param_request:
                 write_rows.append(["##Layer group", group_name])
                 write_rows.append(header)
                 for key, value in group_params.items():
-                    match key:
-                        case "layers":
+                        if key == "layers":
                             write_rows.append(["Layers in Group", value, "count"])
-                        case "infill":
+                        elif key == "infill":
                             write_rows.append(["Infill Velocity", value["scan_speed"], "mm/s"])
                             write_rows.append(["Infill Laser Power", value["laser_power"], "mW"])
-                        case "contour":
+                        elif key == "contour":
                             write_rows.append(["Contour Velocity", value["scan_speed"], "mm/s"])
                             write_rows.append(["Contour Laser Power", value["laser_power"], "mW"])
-                        case "interlayer_dwell":
+                        elif key == "interlayer_dwell":
                             write_rows.append(["Dwell Time", value, "s"])
+                        else:
+                            write_rows.append(["Unexpected item `{}`".format(key), value, "N/A"])
         
         if roller:
             write_rows.append([])
