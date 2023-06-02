@@ -119,6 +119,8 @@ sample_point_count = config["sample_point_count"]
 power_fluc = config["power_fluctuation"]
 deviation = config["deviation"]
 scheme = config["scheme"]
+comment_event_series = config["comment_event_series"]
+comment_string = config["comment_string"]
 
 # load layer_groups variable
 layer_groups = config["layer_groups"]
@@ -188,8 +190,8 @@ linestring = ''
 # reading in gcode files for FGM part
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 #TODO: Set up some values that are written into docs for these
-infill_f_val = 60000 # expected gcode F value for infill region
-contour_f_val = 30000 # expected gcode F value for contour region
+infill_f_val = 30000 #60000 # expected gcode F value for infill region
+contour_f_val = 8400 # 30000 # expected gcode F value for contour region
 gcode_file_list = os.listdir(gcode_files_path)
 if not any("gcode" in file for file in gcode_file_list):
     # Check to see if a gcode file is in the given path
@@ -256,13 +258,14 @@ for file in gcode_file_list:
 # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
 # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
 # the position command value is reached, it goes to the next value
-
 z_coord = z[1]; j = 2
 x_out = np.array([x[0]])
 y_out = np.array([y[0]])
 z_out = np.array([z[1]])
 power_out = np.array([0])
 t_out = np.array([time])
+section_recorder = {"indexes": [], "type": []} # for commenting infill and contour sections
+curr_sec = "" # tracks current section
 print("Populating event series output")
 for i in range(1, len(x)):
     if group_flag:
@@ -278,7 +281,20 @@ for i in range(1, len(x)):
     
     del_d = math.sqrt(pow(del_x,2) + pow(del_y,2))
 
-    vel = infill_scan_speed if f[i] == infill_f_val else contour_scan_speed
+#    vel = infill_scan_speed if f[i] == infill_f_val else contour_scan_speed
+    if f[i] == infill_f_val:
+        vel = infill_scan_speed
+        if comment_event_series and curr_sec != "infill":
+            section_recorder["indexes"].append(len(x_out) - 1)
+            section_recorder["type"].append("infill")
+            curr_sec = "infill"
+    else:
+        vel = contour_scan_speed
+        if comment_event_series and curr_sec != "contour":
+            section_recorder["indexes"].append(len(x_out) - 1)
+            section_recorder["type"].append("contour")
+            curr_sec = "contour"
+       
     del_t = del_d/vel
 
     # add interpolated values to output arrays
@@ -315,12 +331,11 @@ for i in range(1, len(x)):
             z_coord += layer_height
             j += 1
             
-# stores indices at which the z value jumps
-z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
-
 # Adjust time output array by dwell time variables if option is set
 if in_situ_dwell:
     print("Adjusting output times for in-situ dwell")
+    # stores indices at which the z value jumps
+    z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
     t_out += heatup_time # increment whole t_out array by heatup time
     for i in range(len(z_inc_arr)):
         if group_flag:
@@ -335,7 +350,6 @@ else:
 # The following develops the wiper event series from laser position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 if roller:
-    print("Creating roller output")
     # initialize roller arrays
     t_roller = [t_out[0]]
     z_roller = list()
@@ -364,16 +378,27 @@ if power_fluc:
 else:
     print("Skipping power fluctuation")
 
-# exporting laser event series##
+# exporting laser event series
 with open(Lfile, 'w', newline='') as csvfile:
+    print("Writing print path event series")
     position_writer = csv.writer(csvfile)
+    rows = []
     for i in range(len(t_out)):
         row = [round(t_out[i], 6), round(x_out[i]+xorg_shift, 6), round(y_out[i]+yorg_shift, 6), round(z_out[i] -
                                                                                 substrate+zorg_shift, 3), power_out[i]]
-        position_writer.writerow(row)
+        rows.append(row) 
+    if comment_event_series:
+        # for adding comments that separate sections between contour and infill
+        section_sep_idxs = np.array(section_recorder["indexes"])
+        section_sep_types = np.array(section_recorder["type"])
+        # iterate backwards in order to not mess up indexing while inserting values
+        for i in range(len(section_sep_idxs)-1, -1, -1):
+            rows.insert(section_sep_idxs[i], [" ".join([comment_string, section_sep_types[i], "section"])])
+    position_writer.writerows(rows)
 
 # exporting wiper/roller event series
 if roller:
+    print("Writing roller event series")
     with open(Rfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         for i in range(len(z_wiper)):
@@ -387,6 +412,7 @@ if roller:
 # creating temperature output write times for at the end of the print phase for each layer
 #TODO: Refactor while loops into for loops in the proceeding functions
 if output_request:
+    print("Writing coordinate output")
     in_time = heatup_time
     output_scan = []
     increment_sample_points = 0
@@ -434,10 +460,12 @@ if output_request:
                     row = [output_scan[p]]
                     position_writer.writerow(row)
                     p += 1
+else:
+    print("Skipping coordinate output")
 
 # Exporting process parameters used in this run
 if process_param_request:
-    #TODO: Must adjust process parameters for layer groups
+    print("Outputting process parameter csv file")
     with open(Tfile, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         date_time = ["Developed {} at {}".format(e.strftime("%Y/%d/%m"), e.strftime("%H:%M"))]
@@ -486,6 +514,8 @@ if process_param_request:
         write_rows.append(["Origin Shift in Z", zorg_shift, "mm"])
         for row in write_rows:
             position_writer.writerow(row)
+else:
+    print("Skipping process parameter output")
         
 
 print("Complete" + "\n")
