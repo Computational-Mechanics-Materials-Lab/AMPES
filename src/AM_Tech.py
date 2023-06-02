@@ -190,8 +190,8 @@ linestring = ''
 # reading in gcode files for FGM part
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 #TODO: Set up some values that are written into docs for these
-infill_f_val = 30000 #60000 # expected gcode F value for infill region
-contour_f_val = 8400 # 30000 # expected gcode F value for contour region
+infill_f_val = 60000 # expected gcode F value for infill region
+contour_f_val = 30000 # expected gcode F value for contour region
 gcode_file_list = os.listdir(gcode_files_path)
 if not any("gcode" in file for file in gcode_file_list):
     # Check to see if a gcode file is in the given path
