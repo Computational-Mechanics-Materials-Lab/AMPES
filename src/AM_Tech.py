@@ -335,7 +335,7 @@ for i in range(1, len(x)):
 if in_situ_dwell:
     print("Adjusting output times for in-situ dwell")
     # stores indices at which the z value jumps
-    z_inc_arr = [(z_posl[i]-1)*interval+(i-1)*2 for i in range(2, len(z_posl))]
+    z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
     t_out += heatup_time # increment whole t_out array by heatup time
     for i in range(len(z_inc_arr)):
         if group_flag:
