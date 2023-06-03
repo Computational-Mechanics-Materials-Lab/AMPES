@@ -190,8 +190,8 @@ linestring = ''
 # reading in gcode files for FGM part
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 #TODO: Set up some values that are written into docs for these
-infill_f_val = 60000 # expected gcode F value for infill region
-contour_f_val = 30000 # expected gcode F value for contour region
+infill_f_val = 30000 # expected gcode F value for infill region
+contour_f_val = 8400 # expected gcode F value for contour region
 gcode_file_list = os.listdir(gcode_files_path)
 if not any("gcode" in file for file in gcode_file_list):
     # Check to see if a gcode file is in the given path
@@ -250,7 +250,7 @@ for file in gcode_file_list:
                     elif curr_f == contour_f_val:
                         power.append(contour_laser_power) 
                     else:
-                        print("ERROR: gcode contains unexpected F values. Verify that the speed used is X for infill region and X for contour region.")
+                        print("ERROR: gcode contains unexpected F values. Verify that the speed used is {} for infill region and {} for contour region.".format(infill_f_val, contour_f_val))
                         exit(1)
                 else:
                     power.append(0)
@@ -335,7 +335,7 @@ for i in range(1, len(x)):
 if in_situ_dwell:
     print("Adjusting output times for in-situ dwell")
     # stores indices at which the z value jumps
-    z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
+    z_inc_arr = [(z_posl[i]-1)*interval+(i-1)*2 for i in range(2, len(z_posl))]
     t_out += heatup_time # increment whole t_out array by heatup time
     for i in range(len(z_inc_arr)):
         if group_flag:
