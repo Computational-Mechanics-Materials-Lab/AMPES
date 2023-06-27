@@ -2,8 +2,6 @@
 
 **Authors**: David Failla, Matthew Dantin, CJ Nguyen, William Furr
 
-**Emails**: (fill with emails)
-
 This script reads in a RepRap gcode file and exports an event series for a laser path and a wiper/roller as a .inp for use with Abaqus. A process parameter record file for L-PBF is also created as a txt for documentation.
 Event series generation can be leveraged for DED and WAAM as well. This script is intended to be used with Slic3r.
 
@@ -13,9 +11,9 @@ Event series generation can be leveraged for DED and WAAM as well. This script i
 
 # Requirements
 
-Slic3r Version: \<is this necessary?\>
+Slic3r Version: 1.3
 
-Python Version: 3.9
+Python Version: 3.10
 
 Python Packages:
 
