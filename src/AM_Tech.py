@@ -190,8 +190,8 @@ linestring = ''
 # reading in gcode files for FGM part
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 #TODO: Set up some values that are written into docs for these
-infill_f_val = 30000 # expected gcode F value for infill region
-contour_f_val = 8400 # expected gcode F value for contour region
+infill_f_val = 60000 # expected gcode F value for infill region
+contour_f_val = 30000 # expected gcode F value for contour region
 gcode_file_list = os.listdir(gcode_files_path)
 if not any("gcode" in file for file in gcode_file_list):
     # Check to see if a gcode file is in the given path
@@ -288,7 +288,7 @@ for i in range(1, len(x)):
             section_recorder["indexes"].append(len(x_out) - 1)
             section_recorder["type"].append("infill")
             curr_sec = "infill"
-    else:
+    elif f[i] == contour_f_val:
         vel = contour_scan_speed
         if comment_event_series and curr_sec != "contour":
             section_recorder["indexes"].append(len(x_out) - 1)
@@ -472,7 +472,9 @@ if process_param_request:
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         write_rows = []
+        write_rows.append([])
         if not group_flag:
+            write_rows.append(["##Print parameters"])
             write_rows.append(header)
             write_rows.append(["Infill Velocity", infill_scan_speed, "mm/s"])
             write_rows.append(["Infill Laser Power", infill_laser_power, "mW"])
@@ -482,7 +484,7 @@ if process_param_request:
         else:
             for group_name, group_params in config["layer_groups"].items():
                 write_rows.append([])
-                write_rows.append(["##Layer group", group_name])
+                write_rows.append(["##Layer group print parameters", group_name])
                 write_rows.append(header)
                 for key, value in group_params.items():
                         if key == "layers":

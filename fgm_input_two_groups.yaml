@@ -28,6 +28,8 @@ interval: 5 # number of points you would like to have between all points from gc
 power_fluctuation: true
 deviation: 300
 scheme: "uniform"
+comment_event_series: true # enable or disable comments in event series
+comment_string: "**" # string that prepends comments. only important if `comment_event_series` is true
 layer_height: 0.1  # layer height in mm
 roller: true  # if a roller event series is needed, set to true
 process_param_request: true  # if a text file with process parameters is desired, set to true
