@@ -116,6 +116,21 @@ The following parameters relate to dwell time.
 * 
 Regardless of value, all variables relating to dwell time are ignored if the `in_situ_dwell` variable is set to `false` and the event series will be generated assuming that all dwell-related variables are set to the value 0.
 
+### Power Fluctuation
+
+AMTech allows for the fluctuation of power to mimic the real behavior of laser power. The following parameters allow for configuration of this functionality.
+
+* `power_fluctuation` \[`boolean`\]: set to `false` to apply no power fluctuation i.e. have a static power value
+* `deviation` \[`int`, `float`\]: the maximum deviation from the set laser power value allowed
+* `scheme` \[`string`\]: specifies which distribution to perturb values of power with
+
+Schemes available for use are as follows:
+
+* gaussian - perturbs following a gaussian normal distribution
+* strict - perturbs following a discrete uniform curve
+* uniform - perturbs  following a continuous uniform curve
+* none - equivalent to no perturbation
+
 ### Origin Shift
 
 The following three variables can be used if the event series origin should be offset from the mesh's origin. If no shifting is required, set the values of these to 0.
