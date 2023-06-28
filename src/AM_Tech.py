@@ -413,53 +413,43 @@ if roller:
 #TODO: Refactor while loops into for loops in the proceeding functions
 if output_request:
     print("Writing coordinate output")
-    in_time = heatup_time
-    output_scan = []
-    increment_sample_points = 0
-    q = 1
-    temp = []
-    for i in range(len(t_out)):
-        if t_out[i] - in_time <= 5.0:
-            temp.append(t_out[i])
-        elif t_out[i] - in_time > 5.0 or i + 1 == len(t_out):
-            increment_sample_points = int(len(temp) / sample_point_count)
-            if len(temp) % sample_point_count == 0:
-                while q < sample_point_count:
-                    output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-                    q += 1
-            else:
-                while q + 1 < sample_point_count:
-                    output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-                    q += 1
-                output_scan.append(str(round(t_out[i - 1], 6)))
-            temp = []
-        in_time = t_out[i]
-        q = 0
-
-    increment_sample_points = int(len(temp) / sample_point_count)
-    if len(temp) % sample_point_count == 0:
-        while q < sample_point_count:
-            output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-            q += 1
-    elif len(temp) % sample_point_count != 0:
-        while q + 1 < sample_point_count:
-            output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-            q += 1
-        output_scan.append(str(round(t_out[k - 1], 6)))
-
-    with open(Ofile, 'w', newline='') as csvfile:
+    with open(Ofile, "w", newline='') as csvfile:
         position_writer = csv.writer(csvfile)
-        p = 0
-        counter = 0
-        for i in range(len(t_wiper)):
-            if i % 2 == 0:
-                row = [(round(t_wiper[i], 6))]
-                position_writer.writerow(row)
-            elif i % 2 != 0:
-                for j in range(sample_point_count):
-                    row = [output_scan[p]]
-                    position_writer.writerow(row)
-                    p += 1
+        # write out initial points from heatup time
+        position_writer.writerow([round(t_wiper[0], 6)]) # first deposit
+        position_writer.writerow([round(t_out[0], 6)]) # first power on
+
+        for count, i in enumerate(range(z_inc_arr[0], 0, -1)):
+                        if power_out[i] != 0:
+                            break
+        position_writer.writerow([round(t_out[z_inc_arr[0]-count+1], 6)]) # first scan complete
+
+        for i in range(len(z_inc_arr)):
+            # t_wiper uses *2 because it has two points per z jump and (i+1) means skip the first two
+            #   since those do not correspond to a jump but rather the preheat time
+            deposit_start = t_wiper[(i+1)*2]
+            for count, j in enumerate(range(z_inc_arr[i], len(power_out))):
+                # seek first non-zero value in power array after deposit
+                if power_out[j] != 0:
+                    break
+            power_start = t_out[z_inc_arr[i]+count]
+            # seek layer end using reverse search from next layer jump
+            if i < len(z_inc_arr) - 1:
+                # required to handle last scan block
+                seek_from_ind = z_inc_arr[i+1]
+            else:
+                seek_from_ind = len(x_out) - 1
+
+            for count, j in enumerate(range(seek_from_ind, 0, -1)):
+                # seek first non-zero value in power array prior to next z jump
+                            if power_out[j] != 0:
+                                break
+            power_end = t_out[seek_from_ind-count+1]
+
+            # write out to file
+            position_writer.writerow([round(deposit_start, 6)])
+            position_writer.writerow([round(power_start, 6)])
+            position_writer.writerow([round(power_end, 6)])
 else:
     print("Skipping coordinate output")
 
