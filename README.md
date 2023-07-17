@@ -56,6 +56,7 @@ to have a summary of these arguments printed out.
 
 AMTech interprets print parameters using a YAML format file with the following common parameters:
 
+* `interval` \[`int`\]: the number of points interpolated between every two points of the gcode file
 * `layer_height` \[`int`, `float`\]: the height to increase z value by between every layer in mm
 * `substrate` \[`float`\]: the height of the substrate in mm
 
