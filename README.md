@@ -1,9 +1,9 @@
 # AMTech Script
 
-**Authors**: David Failla, Matthew Dantin, CJ Nguyen, William Furr
+**Authors**: David Failla, CJ Nguyen
 
 This script reads in a RepRap gcode file and exports an event series for a laser path and a wiper/roller as a .inp for use with Abaqus. A process parameter record file for L-PBF is also created as a txt for documentation.
-Event series generation can be leveraged for DED and WAAM as well. This script is intended to be used with Slic3r.
+Event series generation can be leveraged for DED and WAAM as well. This script is intended to be used with Slic3r-generated gcode files.
 
 # Pipeline Architecture
 
@@ -57,11 +57,7 @@ to have a summary of these arguments printed out.
 AMTech interprets print parameters using a YAML format file with the following common parameters:
 
 * `layer_height` \[`int`, `float`\]: the height to increase z value by between every layer in mm
-* `roller` \[`boolean`\]: `true` if a separate roller event series should be generated, else `false`
-* `process_param_request` \[`boolean`\]: `true` if process parameters used to generate the build should be outputted to the same output folder, else `false`
 * `substrate` \[`float`\]: the height of the substrate in mm
-* `output_request` \[`boolean`\]: `true` to output points based on the event series, else `false`
-* `sample_point_count` \[`int`\]: the number of output points desired from scanning
 
 ### Input YAML Subsections
 
@@ -109,12 +105,15 @@ If one wishes to set print parameters for an entire job and not for specific sec
 
 The following parameters relate to dwell time. 
 
-* `in_situ_dwell` \[`boolean`\]: set to `false` to ignore the in-situ dwell times provided by `interlayer_dwell` and `w_dwell`
+* `dwell` \[`boolean`\]: set to `false` to ignore the in-situ dwell times provided by `interlayer_dwell` and `w_dwell`
 * `heatup_time` \[`int`, `float`\]: the initial dwell time that will be added to the start of the build
-* `w_dwell` \[`int`, `float`\]: the amount of time it takes for the roller to finish laying down material for the next layer
+* `roller` \[`boolean`\]: `true` if a separate roller event series should be generated, else `false`
+* `w_dwell` \[`int`, `float`\]: the amount of time it takes for the roller to finish laying down material for the next layer if `roller` is set to true
 * `interval` \[`int`\]: the number of points to interpolate between start and end points within the gcode
-* 
-Regardless of value, all variables relating to dwell time are ignored if the `in_situ_dwell` variable is set to `false` and the event series will be generated assuming that all dwell-related variables are set to the value 0.
+ 
+Regardless of value, all variables relating to dwell time are ignored if the `dwell` variable is set to `false` and the event series will be generated assuming as if all dwell-related variables are set to 0.
+
+If `roller` is set to `true`, then the event series will start after `w_dwell` time to give the roller time for the first layer.
 
 ### Power Fluctuation
 
@@ -129,7 +128,30 @@ Schemes available for use are as follows:
 * gaussian - perturbs following a gaussian normal distribution
 * strict - perturbs following a discrete uniform curve
 * uniform - perturbs  following a continuous uniform curve
-* none - equivalent to no perturbation
+
+### Process Parameters
+
+AMTech can output the process parameters used with each run. To print process parameters after a run, set the boolean option `process_param_request` to `true`. The following are outputted in the process parameters csv file.
+
+
+* time AMTech was ran
+* process parameters per layer group
+  * infill velocity and laser power
+  * contour velocity and laser power
+  * interlayer dwell time
+* roller time if enabled
+* number of points between gcode points (interval)
+* layer height
+* substrate thickness
+* origin shift applied
+
+If one set of process parameters are used for a run across all layers in the input gcode file by using one layer group with no interval, then the process parameter csv file will contain process parameters for one layer with no interval tied to it.
+
+### Time Series Output
+
+AMTech can output a set of time points alongside the event series which allows for **FILL WITH PURPOSE**. These time points correspond to three events that occur in each layer: the start of the roller turning on if it is enabled, the start of the heat source turning on, and the start of the heat source turning off.
+
+To print this time series, set the boolean option `time_series` to `true`.
 
 ### Origin Shift
 
@@ -151,8 +173,9 @@ The files will be named after the parameters provided in the configuration input
 
 * `<filename_root>.inp`: the main event series containing the laser path
 * `<filename_root>_roller.inp`: the roller event series created only if the configuration variable `roller` is true
-* `<filename_root>_process_parameter.csv`: a csv file containing process parameter values provided in the input YAML configuration along with a date-of-generation created only if the configuration variable `output_request` is true
-
+* `<filename_root>_process_parameter.csv`: a csv file containing process parameter values provided in the input YAML configuration along with a date-of-generation created only if the configuration variable `process_param_request` is true
+* `<filename_root>_time_series.inp`: a csv file containing time points corresponding to events inside the event series if `time_series` is set to true
+* 
 # License
 
 This software falls under the MIT License.
