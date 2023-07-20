@@ -7,7 +7,7 @@ Event series generation can be leveraged for DED and WAAM as well. This script i
 
 # Pipeline Architecture
 
-*Architectural diagram for the intended pipeline from STL>GCode>EventSeries?*
+![Architectural diagram of AMTech's pipeline](./resources/amtech_pipeline.png)
 
 # Requirements
 
@@ -107,10 +107,8 @@ If one wishes to set print parameters for an entire job and not for specific sec
 The following parameters relate to dwell time. 
 
 * `dwell` \[`boolean`\]: set to `false` to ignore the in-situ dwell times provided by `interlayer_dwell` and `w_dwell`
-* `heatup_time` \[`int`, `float`\]: the initial dwell time that will be added to the start of the build
 * `roller` \[`boolean`\]: `true` if a separate roller event series should be generated, else `false`
 * `w_dwell` \[`int`, `float`\]: the amount of time it takes for the roller to finish laying down material for the next layer if `roller` is set to true
-* `interval` \[`int`\]: the number of points to interpolate between start and end points within the gcode
  
 Regardless of value, all variables relating to dwell time are ignored if the `dwell` variable is set to `false` and the event series will be generated assuming as if all dwell-related variables are set to 0.
 
@@ -176,7 +174,7 @@ The files will be named after the parameters provided in the configuration input
 * `<filename_root>_roller.inp`: the roller event series created only if the configuration variable `roller` is true
 * `<filename_root>_process_parameter.csv`: a csv file containing process parameter values provided in the input YAML configuration along with a date-of-generation created only if the configuration variable `process_param_request` is true
 * `<filename_root>_time_series.inp`: a csv file containing time points corresponding to events inside the event series if `time_series` is set to true
-* 
+ 
 # License
 
 This software falls under the MIT License.
