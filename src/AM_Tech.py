@@ -75,16 +75,13 @@ def perturb(input_arr, dev, type='gaussian'):
     if type == 'gaussian':
         vals = rng.normal(scale=1.0, size=arr.shape)
         vals *= dev
-
     elif type == 'strict':
         vals = rng.integers(low=-1, high=2, size=arr.shape)
         vals *= dev
-
     elif type == 'uniform':
         vals = rng.uniform(low=-1, high=1.0, size=arr.shape)
         vals *= dev
-
-    elif type == 'none':
+    else:
         vals = np.zeros(arr.shape)
 
     return arr + vals
@@ -108,14 +105,13 @@ with open(args.config, "r") as config_file:
 #step = 0.1  # time step in seconds - maybe exposure time
 interval = config["interval"]
 w_dwell = config["w_dwell"]
-heatup_time = config["heatup_time"]
 layer_height = config["layer_height"]
 roller = config["roller"]
-in_situ_dwell = config["in_situ_dwell"]
+dwell = config["dwell"]
 process_param_request = config["process_param_request"]
 substrate = config["substrate"]
-output_request = config["output_request"]
-sample_point_count = config["sample_point_count"]
+time_series = config["time_series"]
+#sample_point_count = config["sample_point_count"] not yet implemented
 power_fluc = config["power_fluctuation"]
 deviation = config["deviation"]
 scheme = config["scheme"]
@@ -167,15 +163,14 @@ z_wiper = []
 basename = args.outfile_name
 output_dir = args.output_dir
 filename_start = os.path.join(output_dir, basename)
-#TODO: Change this for layer groups.
-Lfile = filename_start + '_' + "testing" + '_' + str(layer_height) + ".inp"
-Rfile = filename_start + '_' + "testing" + '_' + str(layer_height) + "_roller.inp"
-Tfile = filename_start + '_' + "testing" + '_' + str(layer_height) + "_process_parameter.csv"
-Ofile = filename_start + '_' + "testing" + '_' + str(layer_height) + "_output_times.inp"
+laser_event_series = filename_start + ".inp"
+roller_event_series = filename_start + "_roller.inp"
+process_parameter_out = filename_start + "_process_parameter.csv"
+time_series_out = filename_start + "_time_series.inp"
 
 # update path + directory name to match your configuration. This configuration assumes you will have your gcode
 # within a directory adjacent to where the code will be run called "gcodes" and that you would like your result files
-# in a new directory named in accordance to the Lfile name
+# in a new directory named in accordance to the event series file name
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
 gcode_files_path = args.input_dir
@@ -190,8 +185,8 @@ linestring = ''
 # reading in gcode files for FGM part
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 #TODO: Set up some values that are written into docs for these
-infill_f_val = 30000 # expected gcode F value for infill region
-contour_f_val = 8400 # expected gcode F value for contour region
+infill_f_val = 60000 # expected gcode F value for infill region
+contour_f_val = 30000 # expected gcode F value for contour region
 gcode_file_list = os.listdir(gcode_files_path)
 if not any("gcode" in file for file in gcode_file_list):
     # Check to see if a gcode file is in the given path
@@ -269,6 +264,7 @@ curr_sec = "" # tracks current section
 print("Populating event series output")
 for i in range(1, len(x)):
     if group_flag:
+        # set scan speed according to input file groups if needed
         group_idx = get_idx_from_ranges(j-2, intervals) 
         if group_idx == -1:
             break
@@ -277,18 +273,17 @@ for i in range(1, len(x)):
 
     del_x = x[i] - x[i-1]  # incremental change in x
     del_y = y[i] - y[i-1]  # incremental change in y
-    # determining time to move between points based on xy data and velocity
     
+    # determining time to move between points based on xy data and velocity
     del_d = math.sqrt(pow(del_x,2) + pow(del_y,2))
 
-#    vel = infill_scan_speed if f[i] == infill_f_val else contour_scan_speed
     if f[i] == infill_f_val:
         vel = infill_scan_speed
         if comment_event_series and curr_sec != "infill":
             section_recorder["indexes"].append(len(x_out) - 1)
             section_recorder["type"].append("infill")
             curr_sec = "infill"
-    else:
+    elif f[i] == contour_f_val:
         vel = contour_scan_speed
         if comment_event_series and curr_sec != "contour":
             section_recorder["indexes"].append(len(x_out) - 1)
@@ -331,12 +326,15 @@ for i in range(1, len(x)):
             z_coord += layer_height
             j += 1
             
+if dwell or time_series:
+    # create layer jump tracking array if required
+    z_inc_arr = [(z_posl[i]-1)*interval+(i-1)*2 for i in range(2, len(z_posl))]
+
 # Adjust time output array by dwell time variables if option is set
-if in_situ_dwell:
-    print("Adjusting output times for in-situ dwell")
-    # stores indices at which the z value jumps
-    z_inc_arr = [(z_posl[i]-1)*interval+(i-2)*2+1 for i in range(2, len(z_posl))]
-    t_out += heatup_time # increment whole t_out array by heatup time
+if dwell:
+    print("Adjusting output times for dwell")
+    if roller:
+        t_out += w_dwell # increment whole t_out array by roller time
     for i in range(len(z_inc_arr)):
         if group_flag:
             group_idx = get_idx_from_ranges(i, intervals)
@@ -345,7 +343,7 @@ if in_situ_dwell:
             interlayer_dwell = layer_group_list[group_idx]["interlayer_dwell"]
         t_out[z_inc_arr[i]:] += interlayer_dwell
 else:
-    print("Skipping in-situ dwell")
+    print("Skipping dwell")
 
 # The following develops the wiper event series from laser position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
@@ -362,7 +360,7 @@ if roller:
     t_roller.append(t_out[i])
     z_roller = [z_out[0]] + z_roller
 
-    if in_situ_dwell:
+    if dwell:
         # utilize itertools to produce flattened arrays transformed with the expected dwell times
         t_wiper = chain.from_iterable((t_roller[i]-w_dwell, t_roller[i]) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
         z_wiper = chain.from_iterable((z_roller[i], z_roller[i]) for i in range(len(z_roller)))
@@ -379,8 +377,8 @@ else:
     print("Skipping power fluctuation")
 
 # exporting laser event series
-with open(Lfile, 'w', newline='') as csvfile:
-    print("Writing print path event series")
+with open(laser_event_series, 'w', newline='') as csvfile:
+    print("Writing print path event series to {}".format(laser_event_series))
     position_writer = csv.writer(csvfile)
     rows = []
     for i in range(len(t_out)):
@@ -398,8 +396,8 @@ with open(Lfile, 'w', newline='') as csvfile:
 
 # exporting wiper/roller event series
 if roller:
-    print("Writing roller event series")
-    with open(Rfile, 'w', newline='') as csvfile:
+    print("Writing roller event series to {}".format(roller_event_series))
+    with open(roller_event_series, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         for i in range(len(z_wiper)):
             if i % 2 == 0:
@@ -410,69 +408,66 @@ if roller:
                 position_writer.writerow(row)
 
 # creating temperature output write times for at the end of the print phase for each layer
-#TODO: Refactor while loops into for loops in the proceeding functions
-if output_request:
-    print("Writing coordinate output")
-    in_time = heatup_time
-    output_scan = []
-    increment_sample_points = 0
-    q = 1
-    temp = []
-    for i in range(len(t_out)):
-        if t_out[i] - in_time <= 5.0:
-            temp.append(t_out[i])
-        elif t_out[i] - in_time > 5.0 or i + 1 == len(t_out):
-            increment_sample_points = int(len(temp) / sample_point_count)
-            if len(temp) % sample_point_count == 0:
-                while q < sample_point_count:
-                    output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-                    q += 1
-            else:
-                while q + 1 < sample_point_count:
-                    output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-                    q += 1
-                output_scan.append(str(round(t_out[i - 1], 6)))
-            temp = []
-        in_time = t_out[i]
-        q = 0
-
-    increment_sample_points = int(len(temp) / sample_point_count)
-    if len(temp) % sample_point_count == 0:
-        while q < sample_point_count:
-            output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-            q += 1
-    elif len(temp) % sample_point_count != 0:
-        while q + 1 < sample_point_count:
-            output_scan.append(str(round(temp[int(q*increment_sample_points)], 5)))
-            q += 1
-        output_scan.append(str(round(t_out[k - 1], 6)))
-
-    with open(Ofile, 'w', newline='') as csvfile:
+if time_series:
+    print("Writing time series output to {}".format(time_series_out))
+    with open(time_series_out, "w", newline='') as csvfile:
         position_writer = csv.writer(csvfile)
-        p = 0
-        counter = 0
-        for i in range(len(t_wiper)):
-            if i % 2 == 0:
-                row = [(round(t_wiper[i], 6))]
-                position_writer.writerow(row)
-            elif i % 2 != 0:
-                for j in range(sample_point_count):
-                    row = [output_scan[p]]
-                    position_writer.writerow(row)
-                    p += 1
+        # write out initial points from heatup time
+        if roller:
+            position_writer.writerow([round(t_wiper[0], 6)]) # first deposit
+        position_writer.writerow([round(t_out[0], 6)]) # first power on
+
+        for count, i in enumerate(range(z_inc_arr[0], 0, -1)):
+                        if power_out[i] != 0:
+                            break
+        position_writer.writerow([round(t_out[z_inc_arr[0]-count+1], 6)]) # first scan complete
+
+        for i in range(len(z_inc_arr)):
+            # t_wiper uses *2 because it has two points per z jump and (i+1) means skip the first two
+            #   since those do not correspond to a jump but rather the preheat time
+            for count, j in enumerate(range(z_inc_arr[i], len(power_out))):
+                # seek first non-zero value in power array after deposit
+                if power_out[j] != 0:
+                    break
+            power_start = t_out[z_inc_arr[i]+count]
+            # seek layer end using reverse search from next layer jump
+            if i < len(z_inc_arr) - 1:
+                # required to handle last scan block
+                seek_from_ind = z_inc_arr[i+1]
+            else:
+                seek_from_ind = len(x_out) - 1
+
+            for count, j in enumerate(range(seek_from_ind, 0, -1)):
+                # seek first non-zero value in power array prior to next z jump
+                            if power_out[j] != 0:
+                                break
+            if count != 0:
+                # this handles the case that the last point is a power-on point
+                power_end = t_out[seek_from_ind-count+1]
+            else:
+                power_end = t_out[seek_from_ind]
+
+            # write out to file
+            if roller:
+                deposit_start = t_wiper[(i+1)*2]
+                position_writer.writerow([round(deposit_start, 6)])
+            position_writer.writerow([round(power_start, 6)])
+            position_writer.writerow([round(power_end, 6)])
 else:
     print("Skipping coordinate output")
 
 # Exporting process parameters used in this run
 if process_param_request:
-    print("Outputting process parameter csv file")
-    with open(Tfile, 'w', newline='') as csvfile:
+    print("Writing process parameter csv file to {}".format(process_parameter_out))
+    with open(process_parameter_out, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
         date_time = ["Developed {} at {}".format(e.strftime("%Y/%d/%m"), e.strftime("%H:%M"))]
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         write_rows = []
+        write_rows.append([])
         if not group_flag:
+            write_rows.append(["##Print parameters"])
             write_rows.append(header)
             write_rows.append(["Infill Velocity", infill_scan_speed, "mm/s"])
             write_rows.append(["Infill Laser Power", infill_laser_power, "mW"])
@@ -482,7 +477,7 @@ if process_param_request:
         else:
             for group_name, group_params in config["layer_groups"].items():
                 write_rows.append([])
-                write_rows.append(["##Layer group", group_name])
+                write_rows.append(["##Layer group print parameters", group_name])
                 write_rows.append(header)
                 for key, value in group_params.items():
                         if key == "layers":
@@ -509,7 +504,6 @@ if process_param_request:
         write_rows.append(["Intervals", interval, "#"])
         write_rows.append(["Layer Height", layer_height, "mm"])
         write_rows.append(["Substrate Thickness", substrate, "mm"])
-        write_rows.append(["Initial Heatup Time", heatup_time, "s"])
         write_rows.append(["Origin Shift in X", xorg_shift, "mm"])
         write_rows.append(["Origin Shift in Y", yorg_shift, "mm"])
         write_rows.append(["Origin Shift in Z", zorg_shift, "mm"])
