@@ -152,6 +152,8 @@ AMTech can output a set of time points alongside the event series which allows f
 
 To print this time series, set the boolean option `time_series` to `true`.
 
+The number of points polled between the first and last laser points can be adjusted with the `time_series_sample_points`. Set the variable's value to `0` if you only want the three pivotal points to be outputted to the time series file.
+
 ### Origin Shift
 
 The following three variables can be used if the event series origin should be offset from the mesh's origin. If no shifting is required, set the values of these to 0.
@@ -159,6 +161,16 @@ The following three variables can be used if the event series origin should be o
 * `xorg_shift` \[`int`, `float`\]
 * `yorg_shift` \[`int`, `float`\]
 * `zorg_shift` \[`int`, `float`\]
+
+
+### Precision
+
+These are optional variables to adjust the precision of output files.
+
+* `es_precision` \[`int`\]: float precision for laser and roller event series output
+* `ts_precision` \[`int`\]: float precision for time series output
+
+If these variables are not set, then event series output will default to `6` digits after the decimal and time series output will default to `2`.
 
 **Fill out with more example input YAML files for use with DED and WAAM**
 

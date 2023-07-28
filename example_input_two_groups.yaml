@@ -37,3 +37,4 @@ comment_event_series: true # enable or disable comments in event series
 comment_string: "**" # string that prepends comments. only important if `comment_event_series` is true
 process_param_request: true  # if a text file with process parameters is desired, set to true
 time_series: false # set to true if you want to create output points based on the event series
+time_series_sample_points: 3 # number of points to poll within laser on/off between layers for time series

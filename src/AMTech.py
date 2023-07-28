@@ -111,12 +111,22 @@ dwell = config["dwell"]
 process_param_request = config["process_param_request"]
 substrate = config["substrate"]
 time_series = config["time_series"]
+time_series_sample_points = config["time_series_sample_points"]
 #sample_point_count = config["sample_point_count"] not yet implemented
 power_fluc = config["power_fluctuation"]
 deviation = config["deviation"]
 scheme = config["scheme"]
 comment_event_series = config["comment_event_series"]
 comment_string = config["comment_string"]
+
+if "es_precision" in config.keys():
+    es_precision = config["es_precision"]
+else:
+    es_precision = 6
+if "ts_precision" in config.keys():
+    ts_precision = config["ts_precision"]
+else:
+    ts_precision = 2
 
 # load layer_groups variable
 layer_groups = config["layer_groups"]
@@ -382,7 +392,7 @@ with open(laser_event_series, 'w', newline='') as csvfile:
     position_writer = csv.writer(csvfile)
     rows = []
     for i in range(len(t_out)):
-        row = [round(t_out[i], 6), round(x_out[i]+xorg_shift, 6), round(y_out[i]+yorg_shift, 6), round(z_out[i] -
+        row = [round(t_out[i], es_precision), round(x_out[i]+xorg_shift, es_precision), round(y_out[i]+yorg_shift, es_precision), round(z_out[i] -
                                                                                 substrate+zorg_shift, 3), power_out[i]]
         rows.append(row) 
     if comment_event_series:
@@ -401,10 +411,10 @@ if roller:
         position_writer = csv.writer(csvfile)
         for i in range(len(z_wiper)):
             if i % 2 == 0:
-                row = [round(t_wiper[i], 6), -90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 1.0]
+                row = [round(t_wiper[i], es_precision), -90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 1.0]
                 position_writer.writerow(row)
             else:    
-                row = [round(t_wiper[i], 6), 90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 0.0]
+                row = [round(t_wiper[i], es_precision), 90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 0.0]
                 position_writer.writerow(row)
 
 # creating temperature output write times for at the end of the print phase for each layer
@@ -414,45 +424,72 @@ if time_series:
         position_writer = csv.writer(csvfile)
         # write out initial points from heatup time
         if roller:
-            position_writer.writerow([round(t_wiper[0], 6)]) # first deposit
-        position_writer.writerow([round(t_out[0], 6)]) # first power on
+            position_writer.writerow([round(t_wiper[0], ts_precision)]) # first deposit
+        position_writer.writerow([round(t_out[0], ts_precision)]) # first power on
 
         for count, i in enumerate(range(z_inc_arr[0], 0, -1)):
                         if power_out[i] != 0:
                             break
-        position_writer.writerow([round(t_out[z_inc_arr[0]-count+1], 6)]) # first scan complete
+
+        first_end_ind = z_inc_arr[0]-count+1
+
+        if time_series_sample_points > 0:
+            # add additional sample points between power start and end for a layer
+            if time_series_sample_points == 1:
+                sample_inds = [int((first_end_ind)/2), 0]
+            else:
+                sample_inds = np.linspace(0, first_end_ind, time_series_sample_points+2).astype(int)
+
+            for ind in sample_inds[1:-1]:
+                position_writer.writerow([round(t_out[ind], ts_precision)])
+
+        position_writer.writerow([round(t_out[z_inc_arr[0]-count+1], ts_precision)]) # first scan complete
 
         for i in range(len(z_inc_arr)):
             # t_wiper uses *2 because it has two points per z jump and (i+1) means skip the first two
             #   since those do not correspond to a jump but rather the preheat time
-            for count, j in enumerate(range(z_inc_arr[i], len(power_out))):
+            for start_count, j in enumerate(range(z_inc_arr[i], len(power_out))):
                 # seek first non-zero value in power array after deposit
                 if power_out[j] != 0:
                     break
-            power_start = t_out[z_inc_arr[i]+count]
+            start_ind = z_inc_arr[i]+start_count
+            power_start = t_out[start_ind]
             # seek layer end using reverse search from next layer jump
             if i < len(z_inc_arr) - 1:
-                # required to handle last scan block
                 seek_from_ind = z_inc_arr[i+1]
             else:
+                # required to handle last scan block
                 seek_from_ind = len(x_out) - 1
 
-            for count, j in enumerate(range(seek_from_ind, 0, -1)):
+            for end_count, j in enumerate(range(seek_from_ind, 0, -1)):
                 # seek first non-zero value in power array prior to next z jump
                             if power_out[j] != 0:
                                 break
-            if count != 0:
+            if end_count != 0:
                 # this handles the case that the last point is a power-on point
-                power_end = t_out[seek_from_ind-count+1]
+                end_ind = seek_from_ind-end_count+1
+                power_end = t_out[end_ind]
             else:
-                power_end = t_out[seek_from_ind]
+                end_ind = seek_from_ind
+                power_end = t_out[end_ind]
+
+            
+            if time_series_sample_points > 0:
+                # add additional sample points between power start and end for a layer
+                if time_series_sample_points == 1:
+                    sample_inds = [int((end_ind-start_ind)/2)+start_ind, 0]
+                else:
+                    sample_inds = np.linspace(start_ind, end_ind, time_series_sample_points+2).astype(int)
 
             # write out to file
             if roller:
                 deposit_start = t_wiper[(i+1)*2]
-                position_writer.writerow([round(deposit_start, 6)])
-            position_writer.writerow([round(power_start, 6)])
-            position_writer.writerow([round(power_end, 6)])
+                position_writer.writerow([round(deposit_start, ts_precision)])
+            position_writer.writerow([round(power_start, ts_precision)])
+            if time_series_sample_points > 0:
+                for ind in sample_inds[1:-1]:
+                    position_writer.writerow([round(t_out[ind], ts_precision)])
+            position_writer.writerow([round(power_end, ts_precision)])
 else:
     print("Skipping coordinate output")
 
