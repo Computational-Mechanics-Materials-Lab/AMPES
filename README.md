@@ -64,7 +64,7 @@ AMTech interprets print parameters using a YAML format file with the following c
 
 The following describes different sections of the input YAML file where variables directly relate to each other.
 
-Simple example input YAML files configured for L-PBF event series output are provided at the root of this repository under `fgm_input_one_group.yaml` and `fgm_input_two_group.yaml`, which show the use for one set of parameters for a whole job and two groups for specific layers of a job respectively.
+Simple example input YAML files configured for L-PBF event series output are provided at the root of this repository under `example_input_one_group.yaml` and `example_input_two_group.yaml`, which show the use for one set of parameters for a whole job and two groups for specific layers of a job respectively.
 
 ### Layer Groups
 
@@ -98,7 +98,7 @@ The group names are irrelevant to the functionality of AMTech and for the purpos
 
 Both the `infill` and `contour` sections of each layer group section will require a `scan_speed` and `laser_power` variable that dictates the values in mm/s and Watts respectively for that section.
 
-The `interlayer_dwell` variable sets the amount of time in seconds waited for between layers until the next section starts printing. This variable is ignored if the general `in_situ_dwell` boolean variable is set to `false`.
+The `interlayer_dwell` variable sets the amount of time in seconds waited for between layers until the next section starts printing. This variable is ignored if the general `dwell` boolean variable is set to `false`.
 
 If one wishes to set print parameters for an entire job and not for specific sections of the print, the user can specify a single layer group with no `layers` variable. Single groups with an included `layers` interval can still be used to print specific layer intervals with set print parameters.
 
