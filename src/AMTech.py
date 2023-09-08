@@ -393,7 +393,7 @@ with open(laser_event_series, 'w', newline='') as csvfile:
     rows = []
     for i in range(len(t_out)):
         row = [round(t_out[i], es_precision), round(x_out[i]+xorg_shift, es_precision), round(y_out[i]+yorg_shift, es_precision), round(z_out[i] -
-                                                                                substrate+zorg_shift, 3), power_out[i]]
+                                                                                substrate+zorg_shift, 3), round(power_out[i], es_precision)]
         rows.append(row) 
     if comment_event_series:
         # for adding comments that separate sections between contour and infill
