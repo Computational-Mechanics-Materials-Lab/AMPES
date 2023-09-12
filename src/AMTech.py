@@ -48,16 +48,7 @@ import re
 from itertools import chain
 from sys import exit
 
-# Argument Parsing 
-cwd = os.getcwd()
-parser = argparse.ArgumentParser(prog="AM Tech", description="Reads a RepRap gcode file and outputs Abaqus compatible .inp files based off of it.")
-parser.add_argument("-i", "--input_dir", help="Folder that contains the gcode file(s), defaults to <current working dir>/gcodes", default=os.path.join(cwd, "gcodes"))
-parser.add_argument("-c", "--config", help="Config input YAML that will be used to initialize parameters, defaults to <current working dir>/input.yaml", default=os.path.join(cwd, "input.yaml"))
-parser.add_argument("-d", "--output_dir", help="Directory to output files to, defaults to <current working dir>/output", default=os.path.join(cwd, "output"))
-parser.add_argument("-o", "--outfile_name", help="Basename for the files that will be outputted, defaults to \"output\"", default="output")
-
-args = parser.parse_args()
-
+# Functions
 def perturb(input_arr, dev, type='gaussian'):
     """
     # This is a function to perturb an array of values by a given amount. Currently supports a gaussian/normal
@@ -92,6 +83,38 @@ def get_idx_from_ranges(num: int, ranges: list):
             return i
     return False
 
+# Constants
+config_var_types = {
+    "layer_groups": dict,
+    "interval": int,
+    "layer_height": float,
+    "substrate": float,
+    "xorg_shift": float,
+    "yorg_shift": float,
+    "zorg_shift": float,
+    "dwell": bool,
+    "roller": bool,
+    "w_dwell": float,
+    "power_fluctuation": bool,
+    "deviation": float,
+    "scheme": str,
+    "comment_event_series": bool,
+    "process_param_request": bool,
+    "time_series": bool,
+    "time_series_sample_points": int
+}
+
+
+# Argument Parsing 
+cwd = os.getcwd()
+parser = argparse.ArgumentParser(prog="AM Tech", description="Reads a RepRap gcode file and outputs Abaqus compatible .inp files based off of it.")
+parser.add_argument("-i", "--input_gcode", help="Location of the gcode file to use as input")
+parser.add_argument("-c", "--config", help="Config input YAML that will be used to initialize parameters, defaults to <current working dir>/input.yaml", default=os.path.join(cwd, "input.yaml"))
+parser.add_argument("-d", "--output_dir", help="Directory to output files to, defaults to <current working dir>/output", default=os.path.join(cwd, "output"))
+parser.add_argument("-o", "--outfile_name", help="Basename for the files that will be outputted, defaults to \"output\"", default="output")
+
+args = parser.parse_args()
+
 # Process Parameters
 # All are set from the config provided as an argument
 
@@ -99,10 +122,24 @@ def get_idx_from_ranges(num: int, ranges: list):
 with open(args.config, "r") as config_file:
     config = yaml.safe_load(config_file)
 
-#TODO: Input verification
+try:
+    for expect_key, expect_type in config_var_types.items():
+        if not isinstance(config[expect_key], expect_type):
+            if expect_type is int and isinstance(config[expect_key], float):
+                print("Warning: {} is float, expected int".format(expect_key))
+            elif expect_type is float and isinstance(config[expect_key], int):
+                print("Warning: {} is int, expected float".format(expect_key))
+            else:
+                raise TypeError("TypeError: Confing variable {} is not expected type {}".format(expect_key, str(expect_type)))
+except TypeError as e:
+    print(e)
+    exit(1)
+except KeyError as e:
+    print("Error: Config YAML does not contain expected key {}".format(e))
+    exit(1)
+    
 
-# load variables not defined in layer_groups
-#step = 0.1  # time step in seconds - maybe exposure time
+layer_groups = config["layer_groups"]
 interval = config["interval"]
 w_dwell = config["w_dwell"]
 layer_height = config["layer_height"]
@@ -118,7 +155,14 @@ deviation = config["deviation"]
 scheme = config["scheme"]
 comment_event_series = config["comment_event_series"]
 comment_string = config["comment_string"]
+# org_shift used if event series origin is not the same as mesh origin
+xorg_shift = config["xorg_shift"]
+yorg_shift = config["yorg_shift"]
+zorg_shift = config["zorg_shift"]
 
+
+
+# handle optional precision variables
 if "es_precision" in config.keys():
     es_precision = config["es_precision"]
 else:
@@ -128,29 +172,40 @@ if "ts_precision" in config.keys():
 else:
     ts_precision = 2
 
-# load layer_groups variable
-layer_groups = config["layer_groups"]
-layer_group_keys = layer_groups.keys()
-layer_group_list = list(layer_groups.values())
-group_flag = False # boolean flag for if there is more than one group
-if len(layer_group_list) > 1 or "layers" in layer_group_list[0].keys():
-    # get ranges from the intervals in layer_groups
-    group_flag = True 
-    intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]+1) for layer_group in layer_group_list]
-else:
-    # handles the case of a single layer group
-    #TODO: Implement consistent behavior regarding layer intervals so that the user is able to truncate output
-    layer_group = list(layer_groups.values())[0]
-    infill_scan_speed = layer_group["infill"]["scan_speed"]
-    contour_scan_speed = layer_group["contour"]["scan_speed"]
-    infill_laser_power = layer_group["infill"]["laser_power"]
-    contour_laser_power = layer_group["contour"]["laser_power"]
-    interlayer_dwell = layer_group["interlayer_dwell"]
+# process layer_groups variable
+try: 
+    layer_group_keys = layer_groups.keys()
+    layer_group_list = list(layer_groups.values())
+    group_flag = False # boolean flag for if there is more than one group
+    if len(layer_group_list) > 1 or "layers" in layer_group_list[0].keys():
+        # get ranges from the intervals in layer_groups
+        group_flag = True 
+        intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]+1) for layer_group in layer_group_list]
+    else:
+        # handles the case of a single layer group
+        layer_group = list(layer_groups.values())[0]
+        infill_scan_speed = layer_group["infill"]["scan_speed"]
+        contour_scan_speed = layer_group["contour"]["scan_speed"]
+        infill_laser_power = layer_group["infill"]["laser_power"]
+        contour_laser_power = layer_group["contour"]["laser_power"]
+        interlayer_dwell = layer_group["interlayer_dwell"]
+except KeyError as e:
+    print("Error: Layer groups missing expected variable {}".format(e))
+    exit(1)
 
-# org_shift used if event series origin is not the same as mesh origin
-xorg_shift = config["xorg_shift"]
-yorg_shift = config["yorg_shift"]
-zorg_shift = config["zorg_shift"]
+# logic check for dwell time given roller is enabled
+if roller:
+    if dwell:
+        if group_flag:
+            for layer_group in layer_group_list:
+                if w_dwell > layer_group["interlayer_dwell"]:
+                    raise Exception("w_dwell time must be lower than all interlayer_dwell times")
+        else:
+            if w_dwell > interlayer_dwell:
+                raise Exception("w_dwell time must be lower than the interlayer_dwell time")
+    else:
+        raise ValueError("dwell must be enabled if roller is enabled")
+
 
 # used for recording time to completion
 e = datetime.datetime.now()
@@ -183,7 +238,7 @@ time_series_out = filename_start + "_time_series.inp"
 # in a new directory named in accordance to the event series file name
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
-gcode_files_path = args.input_dir
+gcode_filename = args.input_gcode
 
 # Variables needed for reading gcodes
 gcode_count = 0
@@ -194,16 +249,15 @@ linestring = ''
 
 # reading in gcode files for FGM part
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
-#TODO: Set up some values that are written into docs for these
 infill_f_val = 60000 # expected gcode F value for infill region
 contour_f_val = 30000 # expected gcode F value for contour region
-gcode_file_list = os.listdir(gcode_files_path)
-if not any("gcode" in file for file in gcode_file_list):
+if not os.path.isfile(gcode_filename):
     # Check to see if a gcode file is in the given path
-    print("Error: No gcode files found in input directory {}".format(gcode_files_path))
+    print("Error: Gcode file was not found, given {}".format(gcode_file))
     exit(1)
-for file in gcode_file_list:
-    if file[-5:] == "gcode":
+
+if gcode_filename[-5:] == "gcode":
+    with open(gcode_filename, "r") as gcode_file:
         print("Reading gcode file")
         # more variables needed for reading gcodes
         x = []
@@ -213,52 +267,47 @@ for file in gcode_file_list:
         z_posl = []
         power = []
         z_pos = 0
-        with open(os.path.join(gcode_files_path, file), 'r') as gcode_file:
-            lines = []
-            # removing white spaces on lines with G1 or G0
-            for line in gcode_file:
-                if line.startswith("G1") or line.startswith("G0"):  # only reads movement commands
-                    lines.append(line.rstrip())
-        # Replacing ; with single space and splitting into list
-        for line in lines:
-            line = line.replace(';', ' ').split()
-            # Add coordinates to corresponding arrays # changed linestring here
-            for item in line:
-                if pattern.fullmatch(item):
-                    if item[0] == "X":
-                        x.append(float(item[1:]))
-                        f.append(curr_f)
-                        z_pos += 1
-                    elif item[0] == "Y":
-                        y.append(float(item[1:]))
-                    elif item[0] == "Z":
-                        z.append(float(item[1:]))
+        # removing white spaces on lines with G1 or G0
+        for line in gcode_file:
+            if line.startswith("G1") or line.startswith("G0"):  # only reads movement commands
+                # Replacing ; with single space and splitting into list
+                line = line.replace(';', ' ').split()
+                # Add coordinates to corresponding arrays # changed linestring here
+                for item in line:
+                    if pattern.fullmatch(item):
+                        if item[0] == "X":
+                            x.append(float(item[1:]))
+                            f.append(curr_f)
+                            z_pos += 1
+                        elif item[0] == "Y":
+                            y.append(float(item[1:]))
+                        elif item[0] == "Z":
+                            z.append(float(item[1:]))
+                            if group_flag:
+                                group_idx = get_idx_from_ranges(len(z)-1, intervals)
+                                if group_idx == -1:
+                                    # break at z value since we don't want to record past a layer jump outside of ranges
+                                    break
+                            z_posl.append(z_pos)  # Count of z positions per layer
+                        elif item[0] == "F":
+                            curr_f = float(item[1:])
+                if group_flag and group_idx == -1:
+                    break
+                if "X" in "".join(line):
+                    # currently handling bridge speed extrusions by having them append 0 to power array
+                    if curr_f != 2524140 and "E" in "".join(line):
                         if group_flag:
-                            group_idx = get_idx_from_ranges(len(z)-1, intervals)
-                            if group_idx == -1:
-                                # break at z value since we don't want to record past a layer jump outside of ranges
-                                break
-                        z_posl.append(z_pos)  # Count of z positions per layer
-                    elif item[0] == "F":
-                        curr_f = float(item[1:])
-            if group_flag and group_idx == -1:
-                break
-            if "X" in "".join(line):
-                #TODO: Investigate the extrusions at bridge speed and determine a solution to handling them
-                # currently handling bridge speed extrusions by having them append 0 to power array
-                if curr_f != 2524140 and "E" in "".join(line):
-                    if group_flag:
-                        infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
-                        contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
-                    if curr_f == infill_f_val:
-                        power.append(infill_laser_power) 
-                    elif curr_f == contour_f_val:
-                        power.append(contour_laser_power) 
+                            infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
+                            contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
+                        if curr_f == infill_f_val:
+                            power.append(infill_laser_power) 
+                        elif curr_f == contour_f_val:
+                            power.append(contour_laser_power) 
+                        else:
+                            print("ERROR: gcode contains unexpected F values. Verify that the speed used is {} for infill region and {} for contour region.".format(infill_f_val, contour_f_val))
+                            exit(1)
                     else:
-                        print("ERROR: gcode contains unexpected F values. Verify that the speed used is {} for infill region and {} for contour region.".format(infill_f_val, contour_f_val))
-                        exit(1)
-                else:
-                    power.append(0)
+                        power.append(0)
 
 # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
 # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
