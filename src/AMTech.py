@@ -99,11 +99,15 @@ config_var_types = {
     "deviation": float,
     "scheme": str,
     "comment_event_series": bool,
+    "comment_string": str,
     "process_param_request": bool,
     "time_series": bool,
     "time_series_sample_points": int
 }
 
+pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
+infill_f_val = 60000 # expected gcode F value for infill region
+contour_f_val = 30000 # expected gcode F value for contour region
 
 # Argument Parsing 
 cwd = os.getcwd()
@@ -137,7 +141,6 @@ except TypeError as e:
 except KeyError as e:
     print("Error: Config YAML does not contain expected key {}".format(e))
     exit(1)
-    
 
 layer_groups = config["layer_groups"]
 interval = config["interval"]
@@ -159,8 +162,6 @@ comment_string = config["comment_string"]
 xorg_shift = config["xorg_shift"]
 yorg_shift = config["yorg_shift"]
 zorg_shift = config["zorg_shift"]
-
-
 
 # handle optional precision variables
 if "es_precision" in config.keys():
@@ -238,76 +239,82 @@ time_series_out = filename_start + "_time_series.inp"
 # in a new directory named in accordance to the event series file name
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
-gcode_filename = args.input_gcode
 
-# Variables needed for reading gcodes
-gcode_count = 0
-z_coord = 0.0
-x_coord = 0.0
-y_coord = 0.0
-linestring = ''
 
-# reading in gcode files for FGM part
-pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
-infill_f_val = 60000 # expected gcode F value for infill region
-contour_f_val = 30000 # expected gcode F value for contour region
-if not os.path.isfile(gcode_filename):
-    # Check to see if a gcode file is in the given path
-    print("Error: Gcode file was not found, given {}".format(gcode_file))
-    exit(1)
+# Gcode Reading 
 
-if gcode_filename[-5:] == "gcode":
-    with open(gcode_filename, "r") as gcode_file:
-        print("Reading gcode file")
-        # more variables needed for reading gcodes
-        x = []
-        y = []
-        z = []
-        f = []
-        z_posl = []
-        power = []
-        z_pos = 0
-        # removing white spaces on lines with G1 or G0
-        for line in gcode_file:
-            if line.startswith("G1") or line.startswith("G0"):  # only reads movement commands
-                # Replacing ; with single space and splitting into list
-                line = line.replace(';', ' ').split()
-                # Add coordinates to corresponding arrays # changed linestring here
-                for item in line:
-                    if pattern.fullmatch(item):
-                        if item[0] == "X":
-                            x.append(float(item[1:]))
-                            f.append(curr_f)
-                            z_pos += 1
-                        elif item[0] == "Y":
-                            y.append(float(item[1:]))
-                        elif item[0] == "Z":
-                            z.append(float(item[1:]))
-                            if group_flag:
-                                group_idx = get_idx_from_ranges(len(z)-1, intervals)
-                                if group_idx == -1:
-                                    # break at z value since we don't want to record past a layer jump outside of ranges
-                                    break
-                            z_posl.append(z_pos)  # Count of z positions per layer
-                        elif item[0] == "F":
-                            curr_f = float(item[1:])
-                if group_flag and group_idx == -1:
-                    break
-                if "X" in "".join(line):
-                    # currently handling bridge speed extrusions by having them append 0 to power array
-                    if curr_f != 2524140 and "E" in "".join(line):
+# find file or use user-passed filename
+gcode_filename = None
+if not args.input_gcode:
+    # search current dir for a gcode file
+    files = os.listdir(os.getcwd())
+    for file in files:
+        if os.path.isfile(file) and file[-5:] == "gcode":
+            gcode_filename = os.path.join(os.getcwd(), file)
+            break
+    if not gcode_filename:
+        print("Error: No gcode file passed as argument and could not find .gcode file in working directory")
+        exit(1)
+    else:
+        print("Warning: No gcode file passed as argument. Using {} as gcode file".format(gcode_filename))
+elif args.input_gcode[-5:] == "gcode":
+    gcode_filename = args.input_gcode
+    if not os.path.isfile(gcode_filename):
+        # Check to see if a gcode file is in the given path
+        print("Error: Gcode file was not found, given {}".format(gcode_file))
+        exit(1)
+
+with open(gcode_filename, "r") as gcode_file:
+    print("Reading gcode file")
+    # more variables needed for reading gcodes
+    x = []
+    y = []
+    z = []
+    f = []
+    z_posl = []
+    power = []
+    z_pos = 0
+    # removing white spaces on lines with G1 or G0
+    for line in gcode_file:
+        if line.startswith("G1") or line.startswith("G0"):  # only reads movement commands
+            # Replacing ; with single space and splitting into list
+            line = line.replace(';', ' ').split()
+            # Add coordinates to corresponding arrays # changed linestring here
+            for item in line:
+                if pattern.fullmatch(item):
+                    if item[0] == "X":
+                        x.append(float(item[1:]))
+                        f.append(curr_f)
+                        z_pos += 1
+                    elif item[0] == "Y":
+                        y.append(float(item[1:]))
+                    elif item[0] == "Z":
+                        z.append(float(item[1:]))
                         if group_flag:
-                            infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
-                            contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
-                        if curr_f == infill_f_val:
-                            power.append(infill_laser_power) 
-                        elif curr_f == contour_f_val:
-                            power.append(contour_laser_power) 
-                        else:
-                            print("ERROR: gcode contains unexpected F values. Verify that the speed used is {} for infill region and {} for contour region.".format(infill_f_val, contour_f_val))
-                            exit(1)
+                            group_idx = get_idx_from_ranges(len(z)-1, intervals)
+                            if group_idx == -1:
+                                # break at z value since we don't want to record past a layer jump outside of ranges
+                                break
+                        z_posl.append(z_pos)  # Count of z positions per layer
+                    elif item[0] == "F":
+                        curr_f = float(item[1:])
+            if group_flag and group_idx == -1:
+                break
+            if "X" in "".join(line):
+                # currently handling bridge speed extrusions by having them append 0 to power array
+                if curr_f != 2524140 and "E" in "".join(line):
+                    if group_flag:
+                        infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
+                        contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
+                    if curr_f == infill_f_val:
+                        power.append(infill_laser_power) 
+                    elif curr_f == contour_f_val:
+                        power.append(contour_laser_power) 
                     else:
-                        power.append(0)
+                        print("ERROR: gcode contains unexpected F values. Verify that the speed used is {} for infill region and {} for contour region.".format(infill_f_val, contour_f_val))
+                        exit(1)
+                else:
+                    power.append(0)
 
 # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
 # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
