@@ -44,7 +44,7 @@ to have a summary of these arguments printed out.
 
 **Input Arguments**
 
-* `-i`, `--input_dir` Directs to the folder that contains gcode files that will be converted into an event series. If unspecified the script will search for these files in `<current working directory>/gcodes`
+* `-i`, `--input_gcode` Directs to the gcode file that will be converted into an event series. If unspecified the script will search for a file ending in `.gcode` in the current working directory
 * `-c`, `--config` Directs to the YAML configuration file. This will attempt to load `<current working directory>/input.yaml` if unspecified. For setting up this file refer to [its corresponding section](#input-yaml).
 
 **Output Arguments**
