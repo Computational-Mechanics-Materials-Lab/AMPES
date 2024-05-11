@@ -106,8 +106,6 @@ config_var_types = {
 }
 
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
-infill_f_val = 60000 # expected gcode F value for infill region
-contour_f_val = 30000 # expected gcode F value for contour region
 
 # Argument Parsing 
 cwd = os.getcwd()
@@ -185,11 +183,23 @@ try:
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
-        infill_scan_speed = layer_group["infill"]["scan_speed"]
-        contour_scan_speed = layer_group["contour"]["scan_speed"]
+        infill_f_val =  layer_group["infill"]["scan_speed"] * 60 # expected gcode F value for infill region
+        contour_f_val =  layer_group["contour"]["scan_speed"] * 60 # expected gcode F value for contour region
         infill_laser_power = layer_group["infill"]["laser_power"]
         contour_laser_power = layer_group["contour"]["laser_power"]
         interlayer_dwell = layer_group["interlayer_dwell"]
+    
+        # handle optional output speed values
+        if "output_scan_speed" not in layer_group["infill"].keys():
+            infill_scan_speed = layer_group["infill"]["scan_speed"]
+        else:
+            infill_scan_speed = layer_group["infill"]["output_scan_speed"]
+
+        if "output_scan_speed" not in layer_group["contour"].keys():
+            contour_scan_speed = layer_group["contour"]["scan_speed"]
+        else:
+            contour_scan_speed = layer_group["contour"]["output_scan_speed"]
+
 except KeyError as e:
     print("Error: Layer groups missing expected variable {}".format(e))
     exit(1)
@@ -311,7 +321,7 @@ with open(gcode_filename, "r") as gcode_file:
                     elif curr_f == contour_f_val:
                         power.append(contour_laser_power) 
                     else:
-                        print("ERROR: gcode contains unexpected F values. Verify that the speed used is {} for infill region and {} for contour region.".format(infill_f_val, contour_f_val))
+                        print("ERROR: gcode contains unexpected F values. Verify that the speed used in gcode is {} for infill region and {} for contour region.".format(infill_f_val/60 , contour_f_val/60))
                         exit(1)
                 else:
                     power.append(0)
