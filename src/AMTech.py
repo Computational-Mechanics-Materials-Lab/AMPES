@@ -180,11 +180,16 @@ try:
         # get ranges from the intervals in layer_groups
         group_flag = True 
         intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]+1) for layer_group in layer_group_list]
+
+        # use first layer group's speeds to determine f-value speeds to check
+        first_layer_group = layer_group_list[0]
+        infill_f_val =  first_layer_group["infill"]["scan_speed"] * 60 
+        contour_f_val =  first_layer_group["contour"]["scan_speed"] * 60 
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
-        infill_f_val =  layer_group["infill"]["scan_speed"] * 60 # expected gcode F value for infill region
-        contour_f_val =  layer_group["contour"]["scan_speed"] * 60 # expected gcode F value for contour region
+        infill_f_val =  layer_group["infill"]["scan_speed"] * 60
+        contour_f_val =  layer_group["contour"]["scan_speed"] * 60
         infill_laser_power = layer_group["infill"]["laser_power"]
         contour_laser_power = layer_group["contour"]["laser_power"]
         interlayer_dwell = layer_group["interlayer_dwell"]
@@ -344,8 +349,17 @@ for i in range(1, len(x)):
         group_idx = get_idx_from_ranges(j-2, intervals) 
         if group_idx == -1:
             break
-        infill_scan_speed = layer_group_list[group_idx]["infill"]["scan_speed"]
-        contour_scan_speed = layer_group_list[group_idx]["contour"]["scan_speed"]
+
+        layer_group = layer_group_list[group_idx]
+        if "output_scan_speed" not in layer_group["infill"].keys():
+            infill_scan_speed = layer_group["infill"]["scan_speed"]
+        else:
+            infill_scan_speed = layer_group["infill"]["output_scan_speed"]
+
+        if "output_scan_speed" not in layer_group["contour"].keys():
+            contour_scan_speed = layer_group["contour"]["scan_speed"]
+        else:
+            contour_scan_speed = layer_group["contour"]["output_scan_speed"]
 
     del_x = x[i] - x[i-1]  # incremental change in x
     del_y = y[i] - y[i-1]  # incremental change in y
@@ -570,11 +584,17 @@ if process_param_request:
         write_rows = []
         write_rows.append([])
         if not group_flag:
+            # determine output velocities
+            infill_output_scan_speed = value["scan_speed"] if "output_scan_speed" not in value.keys() else value["output_scan_speed"]
+            contour_output_scan_speed = value["scan_speed"] if "output_scan_speed" not in value.keys() else value["output_scan_speed"]
+
             write_rows.append(["##Print parameters"])
             write_rows.append(header)
             write_rows.append(["Infill Velocity", infill_scan_speed, "mm/s"])
+            write_rows.append(["Infill Output Velocity"], infill_output_scan_speed, "mm/s")
             write_rows.append(["Infill Laser Power", infill_laser_power, "mW"])
             write_rows.append(["Contour Velocity", contour_scan_speed, "mm/s"])
+            write_rows.append(["Contour Output Velocity"], contour_output_scan_speed, "mm/s")
             write_rows.append(["Contour Laser Power", contour_laser_power, "mW"])
             write_rows.append(["Interlayer Dwell Time", interlayer_dwell, "s"])
         else:
@@ -586,10 +606,14 @@ if process_param_request:
                         if key == "layers":
                             write_rows.append(["Layers in Group", value, "count"])
                         elif key == "infill":
+                            infill_output_scan_speed = value["scan_speed"] if "output_scan_speed" not in value.keys() else value["output_scan_speed"]
                             write_rows.append(["Infill Velocity", value["scan_speed"], "mm/s"])
+                            write_rows.append(["Infill Output Velocity"], infill_output_scan_speed, "mm/s")
                             write_rows.append(["Infill Laser Power", value["laser_power"], "mW"])
                         elif key == "contour":
+                            contour_output_scan_speed = value["scan_speed"] if "output_scan_speed" not in value.keys() else value["output_scan_speed"]
                             write_rows.append(["Contour Velocity", value["scan_speed"], "mm/s"])
+                            write_rows.append(["Contour Output Velocity"], contour_output_scan_speed, "mm/s")
                             write_rows.append(["Contour Laser Power", value["laser_power"], "mW"])
                         elif key == "interlayer_dwell":
                             write_rows.append(["Dwell Time", value, "s"])

@@ -102,6 +102,43 @@ The `interlayer_dwell` variable sets the amount of time in seconds waited for be
 
 If one wishes to set print parameters for an entire job and not for specific sections of the print, the user can specify a single layer group with no `layers` variable. Single groups with an included `layers` interval can still be used to print specific layer intervals with set print parameters.
 
+### Output Scan Speed
+
+AMTech provides optional YAML configuration variables for outputting with different scan speeds than what was specified in the creation of the input gcode file.
+
+The term is simply `output_scan_speed` and expects a floating point integer value, specifying the desired output speed for the section it is in in mm/s.
+
+This term can be used inside of any `infill` or `contour` section to alter the output for that respective section, but the original `scan_speed` variable must still be present and set to the speed used to generate the gcode file regardless of if the optional `output_scan_speed` variable is present.
+The reason being is that the `scan_speed` value will be used to differentiate infill and contour sections within the gcode.
+
+For YAML config files containing layer groups, the first layer group's infill and contour `scan_speed` values are used to detect the corresponding sections in the gcode.
+
+The example below changes the first layer group's output value to be 600 mm/s for infill sections and 100 mm/s for contour sections in the output file.
+
+```yaml
+layer_groups: 
+  group_one:
+    layers: [1, 95]
+    infill:
+      scan_speed: 1000
+      output_scan_speed: 600
+      laser_power: 4000000
+    contour:
+      scan_speed: 500
+      output_scan_speed: 100
+      laser_power: 2000000
+    interlayer_dwell: 10.0
+  group_two:
+    layers: [96, 128]
+    infill:
+      scan_speed: 800
+      laser_power: 2000000
+    contour:
+      scan_speed: 400
+      laser_power: 1000000
+    interlayer_dwell: 15.0
+```
+
 ### Dwell
 
 The following parameters relate to dwell time. 
