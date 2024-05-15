@@ -358,17 +358,25 @@ for i in range(1, len(x)):
        
     del_t = del_d/vel
 
-    # add interpolated values to output arrays
-    tmp_x = np.linspace(x[i-1], x[i], interval+1)
-    tmp_y = np.linspace(y[i-1], y[i], interval+1)
-    tmp_z = [z_coord]*(interval+1)
-    tmp_p = [power[i]]*(interval+1)
-    tmp_t = np.linspace(time, time+del_t, interval+1)
-    x_out = np.concatenate([x_out[:-1], tmp_x])
-    y_out = np.concatenate([y_out[:-1], tmp_y])
-    z_out = np.concatenate([z_out[:-1], tmp_z])
-    power_out = np.concatenate([power_out[:-1], tmp_p])
-    t_out = np.concatenate([t_out[:-1], tmp_t])
+    if interval > 0:
+        # add interpolated values to output arrays
+        tmp_x = np.linspace(x[i-1], x[i], interval+1)
+        tmp_y = np.linspace(y[i-1], y[i], interval+1)
+        tmp_z = [z_coord]*(interval+1)
+        tmp_p = [power[i]]*(interval+1)
+        tmp_t = np.linspace(time, time+del_t, interval+1)
+        x_out = np.concatenate([x_out[:-1], tmp_x])
+        y_out = np.concatenate([y_out[:-1], tmp_y])
+        z_out = np.concatenate([z_out[:-1], tmp_z])
+        power_out = np.concatenate([power_out[:-1], tmp_p])
+        t_out = np.concatenate([t_out[:-1], tmp_t])
+    else:
+        # account for interval of 0
+        x_out = np.append(x_out, x[i])
+        y_out = np.append(y_out, y[i])
+        z_out = np.append(z_out, z_coord)
+        power_out = np.append(power_out, power[i])
+        t_out = np.append(t_out, time+del_t)
 
     time += del_t
     
@@ -394,7 +402,10 @@ for i in range(1, len(x)):
             
 if dwell or time_series:
     # create layer jump tracking array if required
-    z_inc_arr = [(z_posl[i]-1)*interval+(i-1)*2 for i in range(2, len(z_posl))]
+    if interval > 0:
+        z_inc_arr = [(z_posl[i]-1)*interval+(i-1)*2 for i in range(2, len(z_posl))]
+    else:
+        z_inc_arr = [z_posl[i]+(i-2)*2+1 for i in range(2, len(z_posl))]
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
