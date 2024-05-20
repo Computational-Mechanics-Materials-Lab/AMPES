@@ -183,11 +183,22 @@ try:
 
         # use first layer group's speeds to determine f-value speeds to check
         first_layer_group = layer_group_list[0]
+        if "base_scan_speed" not in first_layer_group["infill"].keys() or \
+           "base_scan_speed" not in first_layer_group["contour"].keys():
+                raise KeyError("The first layer group's sections must contain a `base_scan_speed` variable set to the corresponding section's speed used within the gcode.")
         infill_f_val =  first_layer_group["infill"]["base_scan_speed"] * 60 
         contour_f_val =  first_layer_group["contour"]["base_scan_speed"] * 60 
+
+        for layer_group in layer_group_list[1:]:
+            if "output_scan_speed" not in layer_group["infill"].keys() or \
+               "output_scan_speed" not in layer_group["contour"].keys():
+                raise KeyError("Layer groups' infill and contour sections after first layer group must contain an `output_scan_speed` variable")
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
+        if "base_scan_speed" not in layer_group["infill"].keys() or \
+           "base_scan_speed" not in layer_group["contour"].keys():
+                raise KeyError("The layer group's sections must contain a `base_scan_speed` variable set to the corresponding section's speed used within the gcode.")
         infill_f_val =  layer_group["infill"]["base_scan_speed"] * 60
         contour_f_val = layer_group["contour"]["base_scan_speed"] * 60
         infill_laser_power = layer_group["infill"]["laser_power"]
@@ -206,7 +217,7 @@ try:
             contour_scan_speed = layer_group["contour"]["output_scan_speed"]
 
 except KeyError as e:
-    print("Error: Layer groups missing expected variable {}".format(e))
+    print("Error: Layer groups missing expected variable: {}".format(e))
     exit(1)
 
 # logic check for dwell time given roller is enabled
@@ -222,9 +233,6 @@ if roller:
     else:
         raise ValueError("dwell must be enabled if roller is enabled")
 
-#TODO: Add check to ensure that groups contain `base_scan_speed` for first group and `output_scan_speed` for rest of groups
-if group_flag:
-    pass
 
 
 # used for recording time to completion
