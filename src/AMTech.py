@@ -359,11 +359,11 @@ for i in range(1, len(x)):
     del_t = del_d/vel
 
     # add interpolated values to output arrays
-    tmp_x = np.linspace(x[i-1], x[i], interval+1)
-    tmp_y = np.linspace(y[i-1], y[i], interval+1)
-    tmp_z = [z_coord]*(interval+1)
-    tmp_p = [power[i]]*(interval+1)
-    tmp_t = np.linspace(time, time+del_t, interval+1)
+    tmp_x = np.linspace(x[i-1], x[i], interval+2)
+    tmp_y = np.linspace(y[i-1], y[i], interval+2)
+    tmp_z = [z_coord]*(interval+2)
+    tmp_p = [power[i]]*(interval+2)
+    tmp_t = np.linspace(time, time+del_t, interval+2)
     x_out = np.concatenate([x_out[:-1], tmp_x])
     y_out = np.concatenate([y_out[:-1], tmp_y])
     z_out = np.concatenate([z_out[:-1], tmp_z])
@@ -394,7 +394,7 @@ for i in range(1, len(x)):
             
 if dwell or time_series:
     # create layer jump tracking array if required
-    z_inc_arr = [(z_posl[i]-1)*interval+(i-1)*2 for i in range(2, len(z_posl))]
+    z_inc_arr = [(z_posl[i]-1)*(interval+1)+(i-1)*2 for i in range(2, len(z_posl))]
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
