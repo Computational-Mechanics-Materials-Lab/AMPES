@@ -66,12 +66,15 @@ def perturb(input_arr, dev, type='gaussian'):
     if type == 'gaussian':
         vals = rng.normal(scale=1.0, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     elif type == 'strict':
         vals = rng.integers(low=-1, high=2, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     elif type == 'uniform':
         vals = rng.uniform(low=-1, high=1.0, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     else:
         vals = np.zeros(arr.shape)
 
@@ -87,16 +90,16 @@ def get_idx_from_ranges(num: int, ranges: list):
 config_var_types = {
     "layer_groups": dict,
     "interval": int,
-    "layer_height": float,
+    "layer_height": (int,float),
     "substrate": float,
-    "xorg_shift": float,
-    "yorg_shift": float,
-    "zorg_shift": float,
+    "xorg_shift": (int,float),
+    "yorg_shift": (int,float),
+    "zorg_shift": (int,float),
     "dwell": bool,
     "roller": bool,
-    "w_dwell": float,
+    "w_dwell": (int,float),
     "power_fluctuation": bool,
-    "deviation": float,
+    "deviation": (int,float),
     "scheme": str,
     "comment_event_series": bool,
     "comment_string": str,
