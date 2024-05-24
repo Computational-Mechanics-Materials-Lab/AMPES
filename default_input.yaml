@@ -7,11 +7,11 @@ layer_groups:
     contour:
       base_speed:  0.0       # contour speed in mm/s
       power: 0.0             # power in mW
-    interlayer_dwell:        # dwell time in s. only relevant if dwell is true
+    interlayer_dwell:  0.0   # dwell time in s. only relevant if dwell is true
     
 interval: 1                  # interpolated points between all points from gcode
-layer_height:                # layer height in mm
-substrate: 0.00              # substrate height in mm
+layer_height: 0.0            # layer height in mm
+substrate: 0.0               # substrate height in mm
 xorg_shift: 0.0              # origin shift in x in mm
 yorg_shift: 0.0              # origin shift in y in mm
 zorg_shift: 0.0              # origin shift in z in mm
