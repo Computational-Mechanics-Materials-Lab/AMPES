@@ -2,12 +2,12 @@
 layer_groups: 
   group_one:
     infill:  
-      scan_speed:  0.0       # Infill speed in mm/s
-      laser_power: 0.0       # laser power in mW
+      base_speed:  0.0       # infill speed in mm/s
+      power: 0.0             # power in mW
     contour:
-      scan_speed:  0.0       # contour speed in mm/s
-      laser_power: 0.0       # laser power in mW
-    interlayer_dwell:        # dwell time in s. Only relevant if dwell is true
+      base_speed:  0.0       # contour speed in mm/s
+      power: 0.0             # power in mW
+    interlayer_dwell:        # dwell time in s. only relevant if dwell is true
     
 interval: 1                  # interpolated points between all points from gcode
 layer_height:                # layer height in mm
@@ -20,7 +20,7 @@ roller: true                 # if a roller event series is needed, set to true. 
 w_dwell: 0.0                 # time it takes for the roller to deposit material in s for L-PBF process
 power_fluctuation: false
 deviation: 300.0
-scheme: "uniform"
+scheme: "uniform"            # perturbation scheme for power. see readme for more options
 comment_event_series: true   # enable or disable comments in event series
 comment_string: "**"         # string that prepends comments. only important if `comment_event_series` is true
 process_param_request: true  # if a text file with process parameters is desired, set to true
