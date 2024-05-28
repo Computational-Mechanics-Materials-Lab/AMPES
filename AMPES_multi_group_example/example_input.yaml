@@ -1,0 +1,112 @@
+# Process Parameters
+layer_groups: 
+  group_one:
+    layers: [1, 1025] # interval of layers in the group
+    infill:
+      base_speed: 1.4        # base infill speed in mm/s
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 400000          # power in mW
+    contour:                 
+      base_speed: 10         # base contour speed in mm/s
+      output_speed: 1000     # overrided contour speed in mm/s
+      power: 400000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_two:                 
+    layers: [1026, 1067]     # interval of layers in the group
+    infill:                  
+      output_speed: 1200     # overrided infill speed in mm/s
+      power: 350000          # power in mW
+    contour:                 
+      output_speed: 1200     # overrided infill speed in mm/s
+      power: 350000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_three:               
+    layers: [1068, 1108]     # interval of layers in the group
+    infill:                  
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    contour:                 
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_four:                
+    layers: [1109, 1150]     # interval of layers in the group
+    infill:                  
+      output_speed: 900      # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    contour:                 
+      output_speed: 900      # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_five:                
+    layers: [1151, 1191]     # interval of layers in the group
+    infill:                  
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 350000          # power in mW
+    contour:                 
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 350000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_six:                 
+    layers: [1192, 1233]     # interval of layers in the group
+    infill:                  
+      output_speed: 800      # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    contour:                 
+      output_speed: 800      # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_seven:               
+    layers: [1234, 1274]     # interval of layers in the group
+    infill:                  
+      output_speed: 900      # overrided infill speed in mm/s  
+      power: 350000          # power in mW
+    contour:                 
+      output_speed: 900      # overrided infill speed in mm/s
+      power: 350000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_eight:               
+    layers: [1275, 1316]     # interval of layers in the group
+    infill:                  
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 400000          # power in mW
+    contour:                 
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 400000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_nine:                
+    layers: [1317, 1358]     # interval of layers in the group
+    infill:                  
+      output_speed: 700      # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    contour:                 
+      output_speed: 700      # overrided infill speed in mm/s
+      power: 300000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+  group_ten:
+    layers: [1359, 2384]     # interval of layers in the group
+    infill:
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 400000          # power in mW
+    contour:                 
+      output_speed: 1000     # overrided infill speed in mm/s
+      power: 400000          # power in mW
+    interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
+    
+interval: 5                  # interpolated points between all points from gcode
+layer_height: 0.03           # layer height in mm
+substrate: 0.00              # substrate height in
+xorg_shift: 0.0              # origin shift in x in mm
+yorg_shift: 0.0              # origin shift in y in mm
+zorg_shift: 0.0              # origin shift in z in mm
+dwell: true
+roller: true                 # if a roller event series is needed, set to true
+w_dwell: 8.0                 # time it takes for the roller to deposit material
+power_fluctuation: false
+deviation: 300.0
+scheme: "uniform"            # perturbation scheme for power. see readme for more options
+comment_event_series: false  # enable or disable comments in event series
+comment_string: "**"         # string that prepends comments. only important if `comment_event_series` is true
+process_param_request: true  # if a text file with process parameters is desired, set to true
+time_series: true            # set to one if you want to create time points based on the event series
+time_series_sample_points: 1 # number of points to poll within laser on/off between layers for time series
