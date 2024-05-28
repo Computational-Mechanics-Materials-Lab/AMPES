@@ -331,7 +331,6 @@ with open(gcode_filename, "r") as gcode_file:
             if group_flag and group_idx == -1:
                 break
             if "X" in "".join(line):
-                # currently handling bridge speed extrusions by having them append 0 to power array
                 if "E" in "".join(line):
                     if group_flag:
                         infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
