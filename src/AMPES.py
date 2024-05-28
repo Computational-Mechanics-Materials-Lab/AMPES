@@ -66,12 +66,15 @@ def perturb(input_arr, dev, type='gaussian'):
     if type == 'gaussian':
         vals = rng.normal(scale=1.0, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     elif type == 'strict':
         vals = rng.integers(low=-1, high=2, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     elif type == 'uniform':
         vals = rng.uniform(low=-1, high=1.0, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     else:
         vals = np.zeros(arr.shape)
 
@@ -87,16 +90,16 @@ def get_idx_from_ranges(num: int, ranges: list):
 config_var_types = {
     "layer_groups": dict,
     "interval": int,
-    "layer_height": float,
+    "layer_height": (int,float),
     "substrate": float,
-    "xorg_shift": float,
-    "yorg_shift": float,
-    "zorg_shift": float,
+    "xorg_shift": (int,float),
+    "yorg_shift": (int,float),
+    "zorg_shift": (int,float),
     "dwell": bool,
     "roller": bool,
-    "w_dwell": float,
+    "w_dwell": (int,float),
     "power_fluctuation": bool,
-    "deviation": float,
+    "deviation": (int,float),
     "scheme": str,
     "comment_event_series": bool,
     "comment_string": str,
@@ -106,8 +109,6 @@ config_var_types = {
 }
 
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
-infill_f_val = 60000 # expected gcode F value for infill region
-contour_f_val = 30000 # expected gcode F value for contour region
 
 # Argument Parsing 
 cwd = os.getcwd()
@@ -182,16 +183,44 @@ try:
         # get ranges from the intervals in layer_groups
         group_flag = True 
         intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]+1) for layer_group in layer_group_list]
+
+        # use first layer group's speeds to determine f-value speeds to check
+        first_layer_group = layer_group_list[0]
+        if "base_scan_speed" not in first_layer_group["infill"].keys() or \
+           "base_scan_speed" not in first_layer_group["contour"].keys():
+                raise KeyError("The first layer group's sections must contain a `base_scan_speed` variable set to the corresponding section's speed used within the gcode.")
+        infill_f_val =  first_layer_group["infill"]["base_scan_speed"] * 60 
+        contour_f_val =  first_layer_group["contour"]["base_scan_speed"] * 60 
+
+        for layer_group in layer_group_list[1:]:
+            if "output_scan_speed" not in layer_group["infill"].keys() or \
+               "output_scan_speed" not in layer_group["contour"].keys():
+                raise KeyError("Layer groups' infill and contour sections after first layer group must contain an `output_scan_speed` variable")
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
-        infill_scan_speed = layer_group["infill"]["scan_speed"]
-        contour_scan_speed = layer_group["contour"]["scan_speed"]
+        if "base_scan_speed" not in layer_group["infill"].keys() or \
+           "base_scan_speed" not in layer_group["contour"].keys():
+                raise KeyError("The layer group's sections must contain a `base_scan_speed` variable set to the corresponding section's speed used within the gcode.")
+        infill_f_val =  layer_group["infill"]["base_scan_speed"] * 60
+        contour_f_val = layer_group["contour"]["base_scan_speed"] * 60
         infill_laser_power = layer_group["infill"]["laser_power"]
         contour_laser_power = layer_group["contour"]["laser_power"]
         interlayer_dwell = layer_group["interlayer_dwell"]
+    
+        # handle optional output speed values
+        if "output_scan_speed" not in layer_group["infill"].keys():
+            infill_scan_speed = layer_group["infill"]["base_scan_speed"]
+        else:
+            infill_scan_speed = layer_group["infill"]["output_scan_speed"]
+
+        if "output_scan_speed" not in layer_group["contour"].keys():
+            contour_scan_speed = layer_group["contour"]["base_scan_speed"]
+        else:
+            contour_scan_speed = layer_group["contour"]["output_scan_speed"]
+
 except KeyError as e:
-    print("Error: Layer groups missing expected variable {}".format(e))
+    print("Error: Layer groups missing expected variable: {}".format(e))
     exit(1)
 
 # logic check for dwell time given roller is enabled
@@ -206,6 +235,7 @@ if roller:
                 raise Exception("w_dwell time must be lower than the interlayer_dwell time")
     else:
         raise ValueError("dwell must be enabled if roller is enabled")
+
 
 
 # used for recording time to completion
@@ -302,7 +332,7 @@ with open(gcode_filename, "r") as gcode_file:
                 break
             if "X" in "".join(line):
                 # currently handling bridge speed extrusions by having them append 0 to power array
-                if curr_f != 2524140 and "E" in "".join(line):
+                if "E" in "".join(line):
                     if group_flag:
                         infill_laser_power = layer_group_list[group_idx]["infill"]["laser_power"]
                         contour_laser_power = layer_group_list[group_idx]["contour"]["laser_power"]
@@ -311,7 +341,7 @@ with open(gcode_filename, "r") as gcode_file:
                     elif curr_f == contour_f_val:
                         power.append(contour_laser_power) 
                     else:
-                        print("ERROR: gcode contains unexpected F values. Verify that the speed used is {} for infill region and {} for contour region.".format(infill_f_val, contour_f_val))
+                        print("ERROR: gcode contains unexpected F values. Verify that the speed used in gcode is {} for infill region and {} for contour region.".format(infill_f_val/60 , contour_f_val/60))
                         exit(1)
                 else:
                     power.append(0)
@@ -334,8 +364,21 @@ for i in range(1, len(x)):
         group_idx = get_idx_from_ranges(j-2, intervals) 
         if group_idx == -1:
             break
-        infill_scan_speed = layer_group_list[group_idx]["infill"]["scan_speed"]
-        contour_scan_speed = layer_group_list[group_idx]["contour"]["scan_speed"]
+
+        layer_group = layer_group_list[group_idx]
+        if group_idx == 0:
+            if "output_scan_speed" not in layer_group["infill"].keys():
+                infill_scan_speed = layer_group["infill"]["base_scan_speed"]
+            else:
+                infill_scan_speed = layer_group["infill"]["output_scan_speed"]
+
+            if "output_scan_speed" not in layer_group["contour"].keys():
+                contour_scan_speed = layer_group["contour"]["base_scan_speed"]
+            else:
+                contour_scan_speed = layer_group["contour"]["output_scan_speed"]
+        else:
+            infill_scan_speed = layer_group_list[group_idx]["infill"]["output_scan_speed"]
+            contour_scan_speed = layer_group_list[group_idx]["contour"]["output_scan_speed"]
 
     del_x = x[i] - x[i-1]  # incremental change in x
     del_y = y[i] - y[i-1]  # incremental change in y
@@ -359,11 +402,11 @@ for i in range(1, len(x)):
     del_t = del_d/vel
 
     # add interpolated values to output arrays
-    tmp_x = np.linspace(x[i-1], x[i], interval+1)
-    tmp_y = np.linspace(y[i-1], y[i], interval+1)
-    tmp_z = [z_coord]*(interval+1)
-    tmp_p = [power[i]]*(interval+1)
-    tmp_t = np.linspace(time, time+del_t, interval+1)
+    tmp_x = np.linspace(x[i-1], x[i], interval+2)
+    tmp_y = np.linspace(y[i-1], y[i], interval+2)
+    tmp_z = [z_coord]*(interval+2)
+    tmp_p = [power[i]]*(interval+2)
+    tmp_t = np.linspace(time, time+del_t, interval+2)
     x_out = np.concatenate([x_out[:-1], tmp_x])
     y_out = np.concatenate([y_out[:-1], tmp_y])
     z_out = np.concatenate([z_out[:-1], tmp_z])
@@ -394,7 +437,7 @@ for i in range(1, len(x)):
             
 if dwell or time_series:
     # create layer jump tracking array if required
-    z_inc_arr = [(z_posl[i]-1)*interval+(i-1)*2 for i in range(2, len(z_posl))]
+    z_inc_arr = [(z_posl[i]-1)*(interval+1)+(i-1)*2 for i in range(2, len(z_posl))]
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
@@ -560,14 +603,18 @@ if process_param_request:
         write_rows = []
         write_rows.append([])
         if not group_flag:
+            # determine output velocities
             write_rows.append(["##Print parameters"])
             write_rows.append(header)
-            write_rows.append(["Infill Velocity", infill_scan_speed, "mm/s"])
+            write_rows.append(["Infill Base Velocity", infill_f_val/60, "mm/s"])
+            write_rows.append(["Infill Output Velocity", infill_scan_speed, "mm/s"])
             write_rows.append(["Infill Laser Power", infill_laser_power, "mW"])
-            write_rows.append(["Contour Velocity", contour_scan_speed, "mm/s"])
+            write_rows.append(["Contour Base Velocity", contour_f_val/60, "mm/s"])
+            write_rows.append(["Contour Output Velocity", contour_scan_speed, "mm/s"])
             write_rows.append(["Contour Laser Power", contour_laser_power, "mW"])
             write_rows.append(["Interlayer Dwell Time", interlayer_dwell, "s"])
         else:
+            first_group = True
             for group_name, group_params in config["layer_groups"].items():
                 write_rows.append([])
                 write_rows.append(["##Layer group print parameters", group_name])
@@ -576,15 +623,22 @@ if process_param_request:
                         if key == "layers":
                             write_rows.append(["Layers in Group", value, "count"])
                         elif key == "infill":
-                            write_rows.append(["Infill Velocity", value["scan_speed"], "mm/s"])
+                            infill_output_scan_speed = value["base_scan_speed"] if "output_scan_speed" not in value.keys() else value["output_scan_speed"]
+                            if first_group:
+                                write_rows.append(["Infill Base Velocity", value["base_scan_speed"], "mm/s"])
+                            write_rows.append(["Infill Output Velocity", infill_output_scan_speed, "mm/s"])
                             write_rows.append(["Infill Laser Power", value["laser_power"], "mW"])
                         elif key == "contour":
-                            write_rows.append(["Contour Velocity", value["scan_speed"], "mm/s"])
+                            contour_output_scan_speed = value["base_scan_speed"] if "output_scan_speed" not in value.keys() else value["output_scan_speed"]
+                            if first_group:
+                                write_rows.append(["Contour Base Velocity", value["base_scan_speed"], "mm/s"])
+                            write_rows.append(["Contour Output Velocity", contour_output_scan_speed, "mm/s"])
                             write_rows.append(["Contour Laser Power", value["laser_power"], "mW"])
                         elif key == "interlayer_dwell":
                             write_rows.append(["Dwell Time", value, "s"])
                         else:
                             write_rows.append(["Unexpected item `{}`".format(key), value, "N/A"])
+                first_group = False
         
         if roller:
             write_rows.append([])
