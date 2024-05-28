@@ -93,7 +93,7 @@ layer_groups:
       power: 400000          # power in mW
     interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
     
-interval: 5                  # interpolated points between all points from gcode
+interval: 0                  # interpolated points between all points from gcode
 layer_height: 0.03           # layer height in mm
 substrate: 0.00              # substrate height in
 xorg_shift: 0.0              # origin shift in x in mm
