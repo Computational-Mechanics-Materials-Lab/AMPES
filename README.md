@@ -1,4 +1,4 @@
-# AMTech Script
+# AMPES Script
 
 **Authors**: David Failla, CJ Nguyen
 
@@ -7,7 +7,7 @@ Event series generation can be leveraged for DED and WAAM as well. This script i
 
 # Pipeline Architecture
 
-![Architectural diagram of AMTech's pipeline](./resources/amtech_pipeline.png)
+![Architectural diagram of AMPES's pipeline](./resources/AMPES_pipeline.png)
 
 # Requirements
 
@@ -32,9 +32,9 @@ pip install -r requirements.txt
 
 **To be filled**
 
-## AMTech Overview
+## AMPES Overview
 
-AMTech comes with several command-line arguments to assist in both ease of use and customization per run. Use 
+AMPES comes with several command-line arguments to assist in both ease of use and customization per run. Use 
 
 ```
 python src/AM_Tech.py --help
@@ -54,7 +54,7 @@ to have a summary of these arguments printed out.
 
 ## Input YAML
 
-AMTech interprets print parameters using a YAML format file with the following common parameters:
+AMPES interprets print parameters using a YAML format file with the following common parameters:
 
 * `interval` \[`int`\]: the number of points interpolated between every two points of the gcode file
 * `layer_height` \[`int`, `float`\]: the height to increase z value by between every layer in mm
@@ -68,7 +68,7 @@ Simple example input YAML files configured for L-PBF event series output are pro
 
 ### Layer Groups
 
-AMTech handles functionally graded material (FGM) printing using "layer groups" which are nested YAML variables that allow for the setting of print parameters for different sets of layers.
+AMPES handles functionally graded material (FGM) printing using "layer groups" which are nested YAML variables that allow for the setting of print parameters for different sets of layers.
 
 The parent `layer_groups` variable can contain a number of groups that configure how individual intervals of layers will be handled. An example of a `layer_groups` section configured for two groups of layers is shown below.
 
@@ -96,9 +96,9 @@ layer_groups:
     interlayer_dwell: 10.0
 ```
 
-The group names are irrelevant to the functionality of AMTech and for the purpose of example the groups are named `group_one` and `group_two`. Each group should have a `layers` variable containing a continuous interval of layers which should be included within the group. AMTech treats the interval as an inclusive interval and treats the layers as starting with one rather than zero.
+The group names are irrelevant to the functionality of AMPES and for the purpose of example the groups are named `group_one` and `group_two`. Each group should have a `layers` variable containing a continuous interval of layers which should be included within the group. AMPES treats the interval as an inclusive interval and treats the layers as starting with one rather than zero.
 
-In the case that the user has only one set of values that they wish to apply to all layers of a build, they can supply only one layer group within the `layer_groups` section with no `layers` variable. AMTech will read this one group's properties and use it for every layer supplied within the gcode.
+In the case that the user has only one set of values that they wish to apply to all layers of a build, they can supply only one layer group within the `layer_groups` section with no `layers` variable. AMPES will read this one group's properties and use it for every layer supplied within the gcode.
 
 Both the `infill` and `contour` sections of each layer group section will require a `power` variable that dictates the value in Watts respectively for that section.
 
@@ -108,7 +108,7 @@ If one wishes to set print parameters for an entire job and not for specific sec
 
 ### Output Scan Speed
 
-AMTech provides optional YAML configuration variables for outputting with different scan speeds than what was specified in the creation of the input gcode file.
+AMPES provides optional YAML configuration variables for outputting with different scan speeds than what was specified in the creation of the input gcode file.
 
 The term is simply `output_speed` and expects a floating point integer value, specifying the desired output speed for the section it is in in mm/s.
 
@@ -119,7 +119,7 @@ If `output_speed` is not present, the `base_speed` given will also be used as th
 
 The reason being is that the `base_speed` value will be used to differentiate infill and contour sections within the gcode.
 
-For the case of having more than one layer group, the `base_speed` variable will be required for only the first layer group and `output_speed` will be optional for that first group. AMTech will only use the first layer group's `base_speed` to detect the sections within the input gcode.
+For the case of having more than one layer group, the `base_speed` variable will be required for only the first layer group and `output_speed` will be optional for that first group. AMPES will only use the first layer group's `base_speed` to detect the sections within the input gcode.
 In all subsequent layer groups, `output_speed` will be a required variable, as there is no more detection required and the only speed value required will be the desired output scan speed.
 
 The example below changes the first layer group's output value to be 600 mm/s for infill sections and 100 mm/s for contour sections in the output file.
@@ -162,7 +162,7 @@ If `roller` is set to `true`, then the event series will start after `w_dwell` t
 
 ### Power Fluctuation
 
-AMTech allows for the fluctuation of power to mimic the real behavior of laser power. The following parameters allow for configuration of this functionality.
+AMPES allows for the fluctuation of power to mimic the real behavior of laser power. The following parameters allow for configuration of this functionality.
 
 * `power_fluctuation` \[`boolean`\]: set to `false` to apply no power fluctuation i.e. have a static power value
 * `deviation` \[`int`, `float`\]: the maximum deviation from the set laser power value allowed
@@ -176,10 +176,10 @@ Schemes available for use are as follows:
 
 ### Process Parameters
 
-AMTech can output the process parameters used with each run. To print process parameters after a run, set the boolean option `process_param_request` to `true`. The following are outputted in the process parameters csv file.
+AMPES can output the process parameters used with each run. To print process parameters after a run, set the boolean option `process_param_request` to `true`. The following are outputted in the process parameters csv file.
 
 
-* time AMTech was ran
+* time AMPES was ran
 * process parameters per layer group
   * infill velocity and laser power
   * contour velocity and laser power
@@ -194,7 +194,7 @@ If one set of process parameters are used for a run across all layers in the inp
 
 ### Time Series Output
 
-AMTech can output a set of time points alongside the event series which allows for **FILL WITH PURPOSE**. These time points correspond to three events that occur in each layer: the start of the roller turning on if it is enabled, the start of the heat source turning on, and the start of the heat source turning off.
+AMPES can output a set of time points alongside the event series which allows for **FILL WITH PURPOSE**. These time points correspond to three events that occur in each layer: the start of the roller turning on if it is enabled, the start of the heat source turning on, and the start of the heat source turning off.
 
 To print this time series, set the boolean option `time_series` to `true`.
 
@@ -222,7 +222,7 @@ If these variables are not set, then event series output will default to `6` dig
 
 ## Outputs
 
-Files created by AMTech will output to the directory provided to the `output_dir` argument or `<current working directory>/output` otherwise.
+Files created by AMPES will output to the directory provided to the `output_dir` argument or `<current working directory>/output` otherwise.
 
 The files will be named after the parameters provided in the configuration input YAML in the following format, along with the value provided to the `outfile_name` argument which defaults to `output` if none is provided. Files will be named at the root with `<outfile_name>_<w_dwell>_<layer_height>` which will be referred to as `filename_root` for the remainder of the document.
 
