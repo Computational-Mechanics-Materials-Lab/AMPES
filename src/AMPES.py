@@ -122,6 +122,23 @@ def verify_config_var_types(input: dict, types: dict, tracker: list = None):
 
     return flag
 
+def handle_cond_var(cond_var_key, val_var_key, conf_dict):
+    """
+    Handles a conditional variable within the configuration file
+    """
+    try:
+        cond_var = conf_dict[cond_var_key]
+        if cond_var:
+            try:
+                val_var = conf_dict[val_var_key]
+            except KeyError as e:
+                raise KeyError("'{}' is required if '{}' is true".format(val_var_key, cond_var_key))
+        else:
+            val_var = None
+        return cond_var, val_var
+    except KeyError as e:
+        raise e
+
 def get_idx_from_ranges(num: int, ranges: list):
     for i in range(len(ranges)):
         if num in ranges[i]:
@@ -180,22 +197,14 @@ try:
     interval = config["interval"]
     layer_height = config["layer_height"]
     dwell = config["dwell"]
-    roller = config["roller"]
-    if dwell and roller:
-        w_dwell = config["w_dwell"]
+    roller, w_dwell = handle_cond_var("roller", "w_dwell", config)
     process_param_request = config["process_param_request"]
     substrate = config["substrate"]
-    time_series = config["time_series"]
-    if time_series:
-        time_series_sample_points = config["time_series_sample_points"]
+    time_series, time_series_sample_points = handle_cond_var("time_series", "time_series_sample_points", config)
     #sample_point_count = config["sample_point_count"] not yet implemented
-    power_fluc = config["power_fluctuation"]
-    if power_fluc:
-        deviation = config["deviation"]
-    scheme = config["scheme"]
-    comment_event_series = config["comment_event_series"]
-    if comment_event_series:
-        comment_string = config["comment_string"]
+    power_fluc, deviation = handle_cond_var("power_fluctuation", "deviation", config)
+    _, scheme = handle_cond_var("power_fluctuation", "scheme", config)
+    comment_event_series, comment_string= handle_cond_var("comment_event_series", "comment_string", config)
     # org_shift used if event series origin is not the same as mesh origin
     xorg_shift = config["xorg_shift"]
     yorg_shift = config["yorg_shift"]
@@ -211,7 +220,7 @@ try:
     else:
         ts_precision = 2
 except KeyError as e:
-    exit("Error: Config YAML does not contain expected key {}".format(e))
+    exit("Error: Config YAML does not contain expected key: {}".format(e.args[0]))
 
 # process layer_groups variable
 try: 
