@@ -7,8 +7,8 @@ layer_groups:
       power: 400000          # power in mW
     contour:                 
       base_speed: 10         # base contour speed in mm/s
-      output_speed: 1000     # overrided contour speed in mm/s
-      power: 400000          # power in mW
+      output_speed: 500     # overrided contour speed in mm/s
+      power: 200000          # power in mW
     interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
     
 interval: 0                  # interpolated points between all points from gcode
