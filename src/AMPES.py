@@ -66,16 +66,68 @@ def perturb(input_arr, dev, type='gaussian'):
     if type == 'gaussian':
         vals = rng.normal(scale=1.0, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     elif type == 'strict':
         vals = rng.integers(low=-1, high=2, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     elif type == 'uniform':
         vals = rng.uniform(low=-1, high=1.0, size=arr.shape)
         vals *= dev
+        vals[input_arr==0] = 0
     else:
         vals = np.zeros(arr.shape)
 
     return arr + vals
+
+def verify_config_var_types(input: dict, types: dict, tracker: list = None):
+    """
+    Recursively iterates through items of the input config dictionary and verifies them against the given types.
+    """
+    get_key_recursion = lambda a: " in ".join("'{}'".format(x) for x in reversed(a))
+
+    def get_type_strings(types):
+        type_str = "("
+        if type(types) == tuple:
+            type_str +=", ".join(x.__name__ for x in types)
+        else:
+            type_str += types.__name__
+        type_str +=")"
+        return type_str
+
+    if tracker is None:
+        tracker = list()
+    for key in input.keys():
+        if isinstance(input[key], dict):
+            tracker.append(key)
+            verify_config_var_types(input[key], types, tracker)
+            del tracker[-1]
+        else:
+            tracker.append(key)
+            if key in types.keys():
+                if not isinstance(input[key], types[key]):
+                    if types[key] is float and isinstance(input[key], int):
+                        print("Warning: {} is int, expected float".format(get_key_recursion(tracker)))
+                    else:
+                        raise TypeError("TypeError: Config variable {} is not expected type {}".format(get_key_recursion(tracker), get_type_strings(types[key])))
+            del tracker[-1]
+
+def handle_cond_var(cond_var_key, val_var_key, conf_dict):
+    """
+    Handles a conditional variable within the configuration file
+    """
+    try:
+        cond_var = conf_dict[cond_var_key]
+        if cond_var:
+            try:
+                val_var = conf_dict[val_var_key]
+            except KeyError as e:
+                raise KeyError("'{}' is required if '{}' is true".format(val_var_key, cond_var_key))
+        else:
+            val_var = None
+        return cond_var, val_var
+    except KeyError as e:
+        raise e
 
 def get_idx_from_ranges(num: int, ranges: list):
     for i in range(len(ranges)):
@@ -87,16 +139,21 @@ def get_idx_from_ranges(num: int, ranges: list):
 config_var_types = {
     "layer_groups": dict,
     "interval": int,
-    "layer_height": float,
+    "base_speed": (int,float),
+    "output_speed": (int,float),
+    "layers": list,
+    "power": (int,float),
+    "interlayer_dwell": (int,float),
+    "layer_height": (int,float),
     "substrate": float,
-    "xorg_shift": float,
-    "yorg_shift": float,
-    "zorg_shift": float,
+    "xorg_shift": (int,float),
+    "yorg_shift": (int,float),
+    "zorg_shift": (int,float),
     "dwell": bool,
     "roller": bool,
-    "w_dwell": float,
+    "w_dwell": (int,float),
     "power_fluctuation": bool,
-    "deviation": float,
+    "deviation": (int,float),
     "scheme": str,
     "comment_event_series": bool,
     "comment_string": str,
@@ -104,6 +161,12 @@ config_var_types = {
     "time_series": bool,
     "time_series_sample_points": int
 }
+
+power_fluc_schemes = [
+    "gaussian",
+    "strict",
+    "uniform"
+]
 
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 
@@ -125,51 +188,51 @@ with open(args.config, "r") as config_file:
     config = yaml.safe_load(config_file)
 
 try:
-    for expect_key, expect_type in config_var_types.items():
-        if not isinstance(config[expect_key], expect_type):
-            if expect_type is int and isinstance(config[expect_key], float):
-                print("Warning: {} is float, expected int".format(expect_key))
-            elif expect_type is float and isinstance(config[expect_key], int):
-                print("Warning: {} is int, expected float".format(expect_key))
-            else:
-                raise TypeError("TypeError: Confing variable {} is not expected type {}".format(expect_key, str(expect_type)))
+    verify_config_var_types(config, config_var_types)
 except TypeError as e:
     print(e)
-    exit(1)
+    exit("Error: Expected variable type errors found in configuration file")
+
+try:
+    layer_groups = config["layer_groups"]
+    interval = config["interval"]
+    layer_height = config["layer_height"]
+    dwell = config["dwell"]
+    roller, w_dwell = handle_cond_var("roller", "w_dwell", config)
+    process_param_request = config["process_param_request"]
+    substrate = config["substrate"]
+    time_series, time_series_sample_points = handle_cond_var("time_series", "time_series_sample_points", config)
+    #sample_point_count = config["sample_point_count"] not yet implemented
+    power_fluc, deviation = handle_cond_var("power_fluctuation", "deviation", config)
+    _, scheme = handle_cond_var("power_fluctuation", "scheme", config)
+    comment_event_series, comment_string= handle_cond_var("comment_event_series", "comment_string", config)
+    # org_shift used if event series origin is not the same as mesh origin
+    xorg_shift = config["xorg_shift"]
+    yorg_shift = config["yorg_shift"]
+    zorg_shift = config["zorg_shift"]
+
+    # handle optional precision variables
+    if "es_precision" in config.keys():
+        es_precision = config["es_precision"]
+    else:
+        es_precision = 6
+    if "ts_precision" in config.keys():
+        ts_precision = config["ts_precision"]
+    else:
+        ts_precision = 2
+
+    # handle power fluctuation scheme validity
+    if power_fluc:
+        if scheme not in power_fluc_schemes:
+            exit("Error: Scheme given '{}' not in list of valid schemes {}".format(scheme, power_fluc_schemes))
+
+    # warn for time points demanded, but being 0
+    if time_series:
+        if time_series_sample_points == 0:
+            print("Warning: Time series requested, but number of time points requested between layers is 0")
+
 except KeyError as e:
-    print("Error: Config YAML does not contain expected key {}".format(e))
-    exit(1)
-
-layer_groups = config["layer_groups"]
-interval = config["interval"]
-w_dwell = config["w_dwell"]
-layer_height = config["layer_height"]
-roller = config["roller"]
-dwell = config["dwell"]
-process_param_request = config["process_param_request"]
-substrate = config["substrate"]
-time_series = config["time_series"]
-time_series_sample_points = config["time_series_sample_points"]
-#sample_point_count = config["sample_point_count"] not yet implemented
-power_fluc = config["power_fluctuation"]
-deviation = config["deviation"]
-scheme = config["scheme"]
-comment_event_series = config["comment_event_series"]
-comment_string = config["comment_string"]
-# org_shift used if event series origin is not the same as mesh origin
-xorg_shift = config["xorg_shift"]
-yorg_shift = config["yorg_shift"]
-zorg_shift = config["zorg_shift"]
-
-# handle optional precision variables
-if "es_precision" in config.keys():
-    es_precision = config["es_precision"]
-else:
-    es_precision = 6
-if "ts_precision" in config.keys():
-    ts_precision = config["ts_precision"]
-else:
-    ts_precision = 2
+    exit("Error: Config YAML does not contain expected key: {}".format(e.args[0]))
 
 # process layer_groups variable
 try: 
@@ -185,20 +248,20 @@ try:
         first_layer_group = layer_group_list[0]
         if "base_speed" not in first_layer_group["infill"].keys() or \
            "base_speed" not in first_layer_group["contour"].keys():
-                raise KeyError("The first layer group's sections must contain a `base_speed` variable set to the corresponding section's speed used within the gcode.")
+                raise KeyError("The first layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode.")
         infill_f_val =  first_layer_group["infill"]["base_speed"] * 60 
         contour_f_val =  first_layer_group["contour"]["base_speed"] * 60 
 
         for layer_group in layer_group_list[1:]:
             if "output_speed" not in layer_group["infill"].keys() or \
                "output_speed" not in layer_group["contour"].keys():
-                raise KeyError("Layer groups' infill and contour sections after first layer group must contain an `output_speed` variable")
+                raise KeyError("Layer groups' infill and contour sections after first layer group must contain an 'output_speed' variable")
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
         if "base_speed" not in layer_group["infill"].keys() or \
            "base_speed" not in layer_group["contour"].keys():
-                raise KeyError("The layer group's sections must contain a `base_speed` variable set to the corresponding section's speed used within the gcode.")
+                raise KeyError("The layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode.")
         infill_f_val =  layer_group["infill"]["base_speed"] * 60
         contour_f_val = layer_group["contour"]["base_speed"] * 60
         infill_power = layer_group["infill"]["power"]
@@ -217,8 +280,7 @@ try:
             contour_speed = layer_group["contour"]["output_speed"]
 
 except KeyError as e:
-    print("Error: Layer groups missing expected variable: {}".format(e))
-    exit(1)
+    exit("Error: Layer groups missing expected variable: {}".format(e.args[0]))
 
 # logic check for dwell time given roller is enabled
 if roller:
@@ -226,12 +288,12 @@ if roller:
         if group_flag:
             for layer_group in layer_group_list:
                 if w_dwell > layer_group["interlayer_dwell"]:
-                    raise Exception("w_dwell time must be lower than all interlayer_dwell times")
+                     exit("Error: w_dwell time must be lower than all interlayer_dwell times")
         else:
             if w_dwell > interlayer_dwell:
-                raise Exception("w_dwell time must be lower than the interlayer_dwell time")
+                exit("Error: w_dwell time must be lower than the interlayer_dwell time")
     else:
-        raise ValueError("dwell must be enabled if roller is enabled")
+        exit("Error: dwell must be enabled if roller is enabled")
 
 
 
@@ -280,16 +342,14 @@ if not args.input_gcode:
             gcode_filename = os.path.join(os.getcwd(), file)
             break
     if not gcode_filename:
-        print("Error: No gcode file passed as argument and could not find .gcode file in working directory")
-        exit(1)
+        exit("Error: No gcode file passed as argument and could not find .gcode file in working directory")
     else:
-        print("Warning: No gcode file passed as argument. Using {} as gcode file".format(gcode_filename))
+        print("No gcode file passed as argument. Using {} as gcode file".format(gcode_filename))
 elif args.input_gcode[-5:] == "gcode":
     gcode_filename = args.input_gcode
     if not os.path.isfile(gcode_filename):
         # Check to see if a gcode file is in the given path
-        print("Error: Gcode file was not found, given {}".format(gcode_file))
-        exit(1)
+        exit("Error: Gcode file was not found, given {}".format(gcode_file))
 
 with open(gcode_filename, "r") as gcode_file:
     print("Reading gcode file")
@@ -328,8 +388,7 @@ with open(gcode_filename, "r") as gcode_file:
             if group_flag and group_idx == -1:
                 break
             if "X" in "".join(line):
-                # currently handling bridge speed extrusions by having them append 0 to power array
-                if curr_f != 2524140 and "E" in "".join(line):
+                if "E" in "".join(line):
                     if group_flag:
                         infill_power = layer_group_list[group_idx]["infill"]["power"]
                         contour_power = layer_group_list[group_idx]["contour"]["power"]
@@ -338,8 +397,7 @@ with open(gcode_filename, "r") as gcode_file:
                     elif curr_f == contour_f_val:
                         power.append(contour_power) 
                     else:
-                        print("ERROR: gcode contains unexpected F values. Verify that the speed used in gcode is {} for infill region and {} for contour region.".format(infill_f_val/60 , contour_f_val/60))
-                        exit(1)
+                        exit("ERROR: gcode contains unexpected F values. Verify that the speed used in gcode is {} for infill region and {} for contour region.".format(infill_f_val/60 , contour_f_val/60))
                 else:
                     power.append(0)
 
