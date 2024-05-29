@@ -77,22 +77,22 @@ layer_groups:
   group_one:
     layers: [1, 95]
     infill:
-      base_scan_speed: 1000
-      output_scan_speed: 800
-      laser_power: 4000000
+      base_speed: 1000
+      output_speed: 800
+      power: 4000000
     contour:
-      base_scan_speed: 500
-      output_scan_speed: 600
-      laser_power: 2000000
+      base_speed: 500
+      output_speed: 600
+      power: 2000000
     interlayer_dwell: 10.0
   group_two:
     layers: [96, 128]
     infill:
-      output_scan_speed: 800
-      laser_power: 2000000
+      output_speed: 800
+      power: 2000000
     contour:
-      output_scan_speed: 600
-      laser_power: 1000000
+      output_speed: 600
+      power: 1000000
     interlayer_dwell: 10.0
 ```
 
@@ -100,7 +100,7 @@ The group names are irrelevant to the functionality of AMTech and for the purpos
 
 In the case that the user has only one set of values that they wish to apply to all layers of a build, they can supply only one layer group within the `layer_groups` section with no `layers` variable. AMTech will read this one group's properties and use it for every layer supplied within the gcode.
 
-Both the `infill` and `contour` sections of each layer group section will require a `laser_power` variable that dictates the value in Watts respectively for that section.
+Both the `infill` and `contour` sections of each layer group section will require a `power` variable that dictates the value in Watts respectively for that section.
 
 The `interlayer_dwell` variable sets the amount of time in seconds waited for between layers until the next section starts printing. This variable is ignored if the general `dwell` boolean variable is set to `false`.
 
@@ -110,17 +110,17 @@ If one wishes to set print parameters for an entire job and not for specific sec
 
 AMTech provides optional YAML configuration variables for outputting with different scan speeds than what was specified in the creation of the input gcode file.
 
-The term is simply `output_scan_speed` and expects a floating point integer value, specifying the desired output speed for the section it is in in mm/s.
+The term is simply `output_speed` and expects a floating point integer value, specifying the desired output speed for the section it is in in mm/s.
 
 This term can be used inside of any `infill` or `contour` section to alter the output for that respective section.
 
-For the case where the configuration file contains one layer group under `layer_groups` and no `layers` variable tied to that one group, `base_scan_speed` is a required variable and `output_scan_speed` is an optional variable.
-If `output_scan_speed` is not present, the `base_scan_speed` given will also be used as the output speed in the resulting event series.
+For the case where the configuration file contains one layer group under `layer_groups` and no `layers` variable tied to that one group, `base_speed` is a required variable and `output_speed` is an optional variable.
+If `output_speed` is not present, the `base_speed` given will also be used as the output speed in the resulting event series.
 
-The reason being is that the `base_scan_speed` value will be used to differentiate infill and contour sections within the gcode.
+The reason being is that the `base_speed` value will be used to differentiate infill and contour sections within the gcode.
 
-For the case of having more than one layer group, the `base_scan_speed` variable will be required for only the first layer group and `output_scan_speed` will be optional for that first group. AMTech will only use the first layer group's `base_scan_speed` to detect the sections within the input gcode.
-In all subsequent layer groups, `output_scan_speed` will be a required variable, as there is no more detection required and the only speed value required will be the desired output scan speed.
+For the case of having more than one layer group, the `base_speed` variable will be required for only the first layer group and `output_speed` will be optional for that first group. AMTech will only use the first layer group's `base_speed` to detect the sections within the input gcode.
+In all subsequent layer groups, `output_speed` will be a required variable, as there is no more detection required and the only speed value required will be the desired output scan speed.
 
 The example below changes the first layer group's output value to be 600 mm/s for infill sections and 100 mm/s for contour sections in the output file.
 
@@ -129,22 +129,22 @@ layer_groups:
   group_one:
     layers: [1, 95]
     infill:
-      base_scan_speed: 1000
-      output_scan_speed: 600
-      laser_power: 4000000
+      base_speed: 1000
+      output_speed: 600
+      power: 4000000
     contour:
-      base_scan_speed: 500
-      output_scan_speed: 100
-      laser_power: 2000000
+      base_speed: 500
+      output_speed: 100
+      power: 2000000
     interlayer_dwell: 10.0
   group_two:
     layers: [96, 128]
     infill:
-      output_scan_speed: 800
-      laser_power: 2000000
+      output_speed: 800
+      power: 2000000
     contour:
-      output_scan_speed: 400
-      laser_power: 1000000
+      output_speed: 400
+      power: 1000000
     interlayer_dwell: 15.0
 ```
 
