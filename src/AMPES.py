@@ -84,7 +84,6 @@ def verify_config_var_types(input: dict, types: dict, tracker: list = None):
     """
     Recursively iterates through items of the input config dictionary and verifies them against the given types.
     """
-    flag = True # return flag for continuing rest of code
     get_key_recursion = lambda a: " in ".join("'{}'".format(x) for x in reversed(a))
 
     def get_type_strings(types):
@@ -98,7 +97,6 @@ def verify_config_var_types(input: dict, types: dict, tracker: list = None):
 
     if tracker is None:
         tracker = list()
-
     for key in input.keys():
         if isinstance(input[key], dict):
             tracker.append(key)
@@ -107,20 +105,12 @@ def verify_config_var_types(input: dict, types: dict, tracker: list = None):
         else:
             tracker.append(key)
             if key in types.keys():
-                try:
-                    if not isinstance(input[key], types[key]):
-                        if types[key] is int and isinstance(input[key], float):
-                            print("Warning: {} is float, expected int".format(get_key_recursion(tracker)))
-                        elif types[key] is float and isinstance(input[key], int):
-                            print("Warning: {} is int, expected float".format(get_key_recursion(tracker)))
-                        else:
-                            raise TypeError("TypeError: Config variable {} is not expected type {}".format(get_key_recursion(tracker), get_type_strings(types[key])))
-                except TypeError as e:
-                    print(e)
-                    flag = False
+                if not isinstance(input[key], types[key]):
+                    if types[key] is float and isinstance(input[key], int):
+                        print("Warning: {} is int, expected float".format(get_key_recursion(tracker)))
+                    else:
+                        raise TypeError("TypeError: Config variable {} is not expected type {}".format(get_key_recursion(tracker), get_type_strings(types[key])))
             del tracker[-1]
-
-    return flag
 
 def handle_cond_var(cond_var_key, val_var_key, conf_dict):
     """
@@ -151,6 +141,7 @@ config_var_types = {
     "interval": int,
     "base_speed": (int,float),
     "output_speed": (int,float),
+    "layers": list,
     "power": (int,float),
     "interlayer_dwell": (int,float),
     "layer_height": (int,float),
@@ -171,6 +162,12 @@ config_var_types = {
     "time_series_sample_points": int
 }
 
+power_fluc_schemes = [
+    "gaussian",
+    "strict",
+    "uniform"
+]
+
 pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
 
 # Argument Parsing 
@@ -190,8 +187,12 @@ args = parser.parse_args()
 with open(args.config, "r") as config_file:
     config = yaml.safe_load(config_file)
 
-if not verify_config_var_types(config, config_var_types):
-    exit("Type errors found in configuration file")
+try:
+    verify_config_var_types(config, config_var_types)
+except TypeError as e:
+    print(e)
+    exit("Error: Expected variable type errors found in configuration file")
+
 try:
     layer_groups = config["layer_groups"]
     interval = config["interval"]
@@ -219,6 +220,17 @@ try:
         ts_precision = config["ts_precision"]
     else:
         ts_precision = 2
+
+    # handle power fluctuation scheme validity
+    if power_fluc:
+        if scheme not in power_fluc_schemes:
+            exit("Error: Scheme given '{}' not in list of valid schemes {}".format(scheme, power_fluc_schemes))
+
+    # warn for time points demanded, but being 0
+    if time_series:
+        if time_series_sample_points == 0:
+            print("Warning: Time series requested, but number of time points requested between layers is 0")
+
 except KeyError as e:
     exit("Error: Config YAML does not contain expected key: {}".format(e.args[0]))
 
@@ -236,20 +248,20 @@ try:
         first_layer_group = layer_group_list[0]
         if "base_speed" not in first_layer_group["infill"].keys() or \
            "base_speed" not in first_layer_group["contour"].keys():
-                raise KeyError("The first layer group's sections must contain a `base_speed` variable set to the corresponding section's speed used within the gcode.")
+                raise KeyError("The first layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode.")
         infill_f_val =  first_layer_group["infill"]["base_speed"] * 60 
         contour_f_val =  first_layer_group["contour"]["base_speed"] * 60 
 
         for layer_group in layer_group_list[1:]:
             if "output_speed" not in layer_group["infill"].keys() or \
                "output_speed" not in layer_group["contour"].keys():
-                raise KeyError("Layer groups' infill and contour sections after first layer group must contain an `output_speed` variable")
+                raise KeyError("Layer groups' infill and contour sections after first layer group must contain an 'output_speed' variable")
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
         if "base_speed" not in layer_group["infill"].keys() or \
            "base_speed" not in layer_group["contour"].keys():
-                raise KeyError("The layer group's sections must contain a `base_speed` variable set to the corresponding section's speed used within the gcode.")
+                raise KeyError("The layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode.")
         infill_f_val =  layer_group["infill"]["base_speed"] * 60
         contour_f_val = layer_group["contour"]["base_speed"] * 60
         infill_power = layer_group["infill"]["power"]
@@ -268,7 +280,7 @@ try:
             contour_speed = layer_group["contour"]["output_speed"]
 
 except KeyError as e:
-    exit("Error: Layer groups missing expected variable: {}".format(e))
+    exit("Error: Layer groups missing expected variable: {}".format(e.args[0]))
 
 # logic check for dwell time given roller is enabled
 if roller:
@@ -276,12 +288,12 @@ if roller:
         if group_flag:
             for layer_group in layer_group_list:
                 if w_dwell > layer_group["interlayer_dwell"]:
-                    raise Exception("w_dwell time must be lower than all interlayer_dwell times")
+                     exit("Error: w_dwell time must be lower than all interlayer_dwell times")
         else:
             if w_dwell > interlayer_dwell:
-                raise Exception("w_dwell time must be lower than the interlayer_dwell time")
+                exit("Error: w_dwell time must be lower than the interlayer_dwell time")
     else:
-        raise ValueError("dwell must be enabled if roller is enabled")
+        exit("Error: dwell must be enabled if roller is enabled")
 
 
 
@@ -332,7 +344,7 @@ if not args.input_gcode:
     if not gcode_filename:
         exit("Error: No gcode file passed as argument and could not find .gcode file in working directory")
     else:
-        print("Warning: No gcode file passed as argument. Using {} as gcode file".format(gcode_filename))
+        print("No gcode file passed as argument. Using {} as gcode file".format(gcode_filename))
 elif args.input_gcode[-5:] == "gcode":
     gcode_filename = args.input_gcode
     if not os.path.isfile(gcode_filename):
