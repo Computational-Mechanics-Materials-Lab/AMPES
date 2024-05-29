@@ -1,0 +1,38 @@
+# Process Parameters
+layer_groups: 
+  group_one:
+    layers: [1, 95]          # interval of layers in the group
+    infill:  
+      base_speed:  0.0       # infill speed in mm/s
+      power: 0.0             # power in mW
+    contour:
+      base_speed:  0.0       # contour speed in mm/s
+      power: 0.0             # power in mW
+    interlayer_dwell:  0.0   # dwell time in s. only relevant if dwell is true
+  group_two:
+    layers: [96, 142]        # interval of layers in the group
+    infill:  
+      output_speed:  0.0     # infill speed in mm/s
+      power: 0.0             # power in mW
+    contour:
+      output_speed:  0.0     # contour speed in mm/s
+      power: 0.0             # power in mW
+    interlayer_dwell: 0.0    # dwell time in s. only relevant if dwell is true
+    
+interval: 1                  # interpolated points between all points from gcode
+layer_height: 0.0            # layer height in mm
+substrate: 0.0               # substrate height in mm
+xorg_shift: 0.0              # origin shift in x in mm
+yorg_shift: 0.0              # origin shift in y in mm
+zorg_shift: 0.0              # origin shift in z in mm
+dwell: true               
+roller: true                 # if a roller event series is needed, set to true. dwell must also be true
+w_dwell: 0.0                 # time it takes for the roller to deposit material in s for L-PBF process
+power_fluctuation: false
+deviation: 300.0
+scheme: "uniform"            # perturbation scheme for power. see readme for more options
+comment_event_series: true   # enable or disable comments in event series
+comment_string: "**"         # string that prepends comments. only important if `comment_event_series` is true
+process_param_request: true  # if a text file with process parameters is desired, set to true
+time_series: true            # set to true if you want to create time points based on the event series
+time_series_sample_points: 1 # number of points to poll within laser on/off between layers for time series
