@@ -318,17 +318,17 @@ if not args.input_gcode:
             gcode_filename = os.path.join(os.getcwd(), file)
             break
     if not gcode_filename:
-        exit("Error: No gcode file passed as argument and could not find .gcode file in working directory")
+        exit("Error: No g-code file passed as argument and could not find g-code file in working directory")
     else:
-        print("No gcode file passed as argument. Using {} as gcode file".format(gcode_filename))
+        print("No g-code file passed as argument. Using {} as g-code file".format(gcode_filename))
 elif args.input_gcode[-5:] == "gcode":
     gcode_filename = args.input_gcode
     if not os.path.isfile(gcode_filename):
-        # Check to see if a gcode file is in the given path
-        exit("Error: Gcode file was not found, given {}".format(gcode_file))
+        # Check to see if a g-code file is in the given path
+        exit("Error: g-code file was not found, given {}".format(gcode_file))
 
 with open(gcode_filename, "r") as gcode_file:
-    print("Reading gcode file")
+    print("Reading g-code file")
     # more variables needed for reading gcodes
     x = []
     y = []
