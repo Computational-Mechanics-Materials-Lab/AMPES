@@ -4,11 +4,9 @@
 
 The Additive Manufacturing Process Event Series generator, AMPES, is a Python-based code for developing an event series to be used with numerical simulation work. AMPES leverages open-access Python modules and g-code slicing software to create an event series to represent the heat source following a tool path or laser path of a given additive manufacturing (AM) process. This allows for the capturing of raster scanning effects inherent of most AM processes within a thermomechanical modeling framework. While initially developed for use with laser-powder bed fusion (L-PBF), AMPES has been extended for usage with blown-powder laser directed energy deposition (L-DED), wire arc directed energy deposition (WA-DED), and fused deposition modeling (FDM). 
 
-# Pipeline Architecture
-
 ![Architectural diagram of AMPES's pipeline](./resources/AMPES_README_Graphic.png)
 
-Example of a Sequentially-Coupled Thermomechanical Finite Element Modeling Pipeline That Leverages AMPES for Event Series Generation to Mimic the Position and Power of the Heat Source Model for Accurate Raster Scanning 
+> Example of a Sequentially-Coupled Thermomechanical Finite Element Modeling Pipeline That Leverages AMPES for Event Series Generation to Mimic the Position and Power of the Heat Source Model for Accurate Raster Scanning 
 
 # Requirements
 
@@ -31,14 +29,14 @@ pip install -r requirements.txt
 
 ## STL to RepRap G-code
 
-AMPES accepts RepRap flavored g-code as the input file for determining the event series coordinate positions. G-code file generation can be handled using any g-code slicing software, although Slic3r [1] was the software used for AMPES development. The g-code file must be built to mimic the movement of the raster scanning leveraged by the selected AM process. This requires an <em>.stl</em> file of the selected geometry to be modeled and AM process information such as the material layer/deposition height, hatch spacing, tool/laser speed, etc. to be used with the g-code generation. Please see the provided single and multi group AMPES examples for an illustration of a developed RepRap g-code file for usage with AMPES. The primary difference between the slicing software options the user may want to consider are the scan strategies available. While meander, also called rectangular is one of the most common scan strategies implored, different AM builds may use different strategies and therefore the user may need to look into different g-code slicer options to generate the RepRap g-code file.
+AMPES accepts RepRap flavored g-code as the input file for determining the event series coordinate positions. G-code file generation can be handled using any g-code slicing software, although Slic3r \[1\] was the software used for AMPES development. The g-code file must be built to mimic the movement of the raster scanning leveraged by the selected AM process. This requires an <em>.stl</em> file of the selected geometry to be modeled and AM process information such as the material layer/deposition height, hatch spacing, tool/laser speed, etc. to be used with the g-code generation. Please see the provided single and multi group AMPES examples for an illustration of a developed RepRap g-code file for usage with AMPES. The primary difference between the slicing software options the user may want to consider are the scan strategies available. While meander, also called rectangular is one of the most common scan strategies implored, different AM builds may use different strategies and therefore the user may need to look into different g-code slicer options to generate the RepRap g-code file.
 
 ## AMPES Overview
 
 AMPES comes with several command-line arguments to assist in both ease of use and customization per run. Use 
 
 ```
-python src/AM_Tech.py --help
+python src/AMPES.py --help
 ```
 
 to have a summary of these arguments printed out.
