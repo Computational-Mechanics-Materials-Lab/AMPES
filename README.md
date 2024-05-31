@@ -219,14 +219,14 @@ If these variables are not set, then event series output will default to `6` dig
 
 Files created by AMPES will output to the directory provided to the `output_dir` argument or `<current working directory>/output` otherwise.
 
-The files will be named after the parameters provided in the configuration input YAML in the following format, along with the value provided to the `outfile_name` argument which defaults to `output` if none is provided. Files will be named at the root with `<outfile_name>_<w_dwell>_<layer_height>` which will be referred to as `filename_root` for the remainder of the document.
+ The value provided to the `outfile_name` argument which defaults to `output` if none is provided. Files will be named at the root with `<outfile_name>`.
 
 **Output Files**
 
-* `<filename_root>.inp`: the main event series containing the path
-* `<filename_root>_roller.inp`: the roller event series created only if the configuration variable `roller` is true
-* `<filename_root>_process_parameter.csv`: a csv file containing process parameter values provided in the input YAML configuration along with a date-of-generation created only if the configuration variable `process_param_request` is true
-* `<filename_root>_time_series.inp`: a csv file containing time points corresponding to events inside the event series if `time_series` is set to true
+* `<outfile_name>.inp`: the main event series containing the path
+* `<outfile_name>_roller.inp`: the roller event series created only if the configuration variable `roller` is true
+* `<outfile_name>_process_parameter.csv`: a csv file containing process parameter values provided in the input YAML configuration along with a date-of-generation created only if the configuration variable `process_param_request` is true
+* `<outfile_name>_time_series.inp`: a csv file containing time points corresponding to events inside the event series if `time_series` is set to true
 
 
 # References
