@@ -4,7 +4,7 @@
 
 The Additive Manufacturing Process Event Series generator, AMPES, is a Python-based code for developing an event series to be used with numerical simulation work. AMPES leverages open-access Python modules and g-code slicing software to create an event series to represent the heat source following a tool path or laser path of a given additive manufacturing (AM) process. This allows for the capturing of raster scanning effects inherent of most AM processes within a thermomechanical modeling framework. While initially developed for use with laser-powder bed fusion (L-PBF), AMPES has been extended for usage with blown-powder laser directed energy deposition (L-DED), wire arc directed energy deposition (WA-DED), and fused deposition modeling (FDM). 
 
-![Architectural diagram of AMPES's pipeline](./resources/AMPES_README_Graphic.png)
+![Architectural diagram of AMPES's pipeline](./resources/AMPES_architecture_figure.gif)
 
 > Example of a Sequentially-Coupled Thermomechanical Finite Element Modeling Pipeline That Leverages AMPES for Event Series Generation to Mimic the Position and Power of the Heat Source Model for Accurate Raster Scanning 
 
