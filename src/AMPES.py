@@ -160,8 +160,16 @@ args = parser.parse_args()
 # All are set from the config provided as an argument
 
 # Load in config yaml file.
-with open(args.config, "r") as config_file:
-    config = yaml.safe_load(config_file)
+if os.path.isfile(args.config):
+    try:
+        with open(args.config, "r") as config_file:
+            config = yaml.safe_load(config_file)
+    except Exception as e:
+        print(e)
+        print('')
+        exit("Error: Could not load input YAML file, given {}".format(args.config))
+else:
+    exit("Error: Config YAML file passed was not found, given {}".format(args.config))
 
 try:
     verify_config_var_types(config, config_var_types)
@@ -288,25 +296,7 @@ t_roller = []
 t_wiper = []
 z_wiper = []
 
-# assign working directories. Your gcode should have information to the geometry in its title. Add variables as shown
-# to add more description to the event series being developed.
-
-basename = args.outfile_name
-output_dir = args.output_dir
-filename_start = os.path.join(output_dir, basename)
-main_event_series = filename_start + ".inp"
-roller_event_series = filename_start + "_roller.inp"
-process_parameter_out = filename_start + "_process_parameter.csv"
-time_series_out = filename_start + "_time_series.inp"
-
-# update path + directory name to match your configuration. This configuration assumes you will have your gcode
-# within a directory adjacent to where the code will be run called "gcodes" and that you would like your result files
-# in a new directory named in accordance to the event series file name
-if not os.path.isdir(output_dir):
-    os.mkdir(output_dir)
-
-
-# Gcode Reading 
+# Handle passed arguments
 
 # find file or use user-passed filename
 gcode_filename = None
@@ -321,11 +311,27 @@ if not args.input_gcode:
         exit("Error: No g-code file passed as argument and could not find g-code file in working directory")
     else:
         print("No g-code file passed as argument. Using {} as g-code file".format(gcode_filename))
-elif args.input_gcode[-5:] == "gcode":
+else:
     gcode_filename = args.input_gcode
-    if not os.path.isfile(gcode_filename):
-        # Check to see if a g-code file is in the given path
-        exit("Error: g-code file was not found, given {}".format(gcode_file))
+    if args.input_gcode[-5:] == "gcode":
+        if not os.path.isfile(gcode_filename):
+            # Check to see if a gcode file is in the given path
+            exit("Error: g-code file passed as input was not found, given {}".format(gcode_filename))
+    else:
+        exit("Error: File passed as input is not a g-code file (must end with .gcode), given {}".format(gcode_filename))
+
+basename = args.outfile_name
+output_dir = args.output_dir
+filename_start = os.path.join(output_dir, basename)
+main_event_series = filename_start + ".inp"
+roller_event_series = filename_start + "_roller.inp"
+process_parameter_out = filename_start + "_process_parameter.csv"
+time_series_out = filename_start + "_time_series.inp"
+
+if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+# Gcode Reading 
 
 with open(gcode_filename, "r") as gcode_file:
     print("Reading g-code file")
