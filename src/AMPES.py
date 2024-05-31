@@ -1,40 +1,16 @@
 # Code Description
-# This script reads in a RepRap gcode file and exports an event series for a laser path and a wiper/roller as a .inp
-# for use with Abaqus. A process parameter record file for L-PBF is also created as a txt for documentation.
-# Event series generation can be leveraged for DED and WAAM as well. This script is intended to be used with Slic3r.
+# The Additive Manufacturing Process Event Series generator, AMPES, is a Python-based code for developing an event 
+# series to be used with numerical simulation work. AMPES leverages open-access Python modules and g-code slicing 
+# software to create an event series to represent the heat source following a tool path or laser path of a given 
+# additive manufacturing (AM) process. This allows for the capturing of raster scanning effects inherent of most AM 
+# processes within a thermomechanical modeling framework. While initially developed for use with laser-powder bed 
+# fusion (L-PBF), AMPES has been extended for usage with blown-powder laser directed energy deposition (L-DED), wire 
+# arc directed energy deposition (WA-DED), and fused deposition modeling (FDM).
 #######################################################################################################################
 # Written by:
-# David Failla
-# dpf39@msstate.edu
-# dpf39@cavs.msstate.edu
+# David P Failla
+# Chuyen J. Nguyen
 #######################################################################################################################
-# Edit history:
-# 08/30/2021 original coding - David Failla
-# 09/01/2021 modified paths and corrected .csv to .inp output - David Failla
-# 09/13/2021 Added a feature that creates a list of time points for the end of each layer build - David Failla
-# 10/18/2021 Added ability to create an event series from multiple input gcodes for FGM processing - David Failla
-# 02/02/2022 Corrected wiper event series to be within the in-situ dwell time - David Failla
-# 02/16/2022 General Clean up - David Failla
-# 03/02/2022 Corrected issue with Dwell Time implementation - David Failla
-# 03/07/2022 Added comments and simplified variables for clarity - David Failla
-# 03/17/2022 Added feature for parts with a single or multiple gcodes and output time at the end of scan - David Failla
-# 03/21/2022 Added feature to control output times for increments during scanning - David Failla
-# 03/24/2022 Added Switches for outputs and fixed an error that was erasing X and Y values for scanning - David Failla
-# 03/25/2022 Added more outputs to Output Process Parameter file and added comments - David Failla
-# 10/22/2022 Corrected incrementation by replacing step with interval method for both FGM and non - David Failla
-#######################################################################################################################
-# Code Usage
-# Begin by populating all process parameters with known variables. This code is built around its in-situ process
-# parameter variation capability. If you are modeling a functionally graded material case, have this script look into
-# a directory with only the required gcodes. Do this by specifying a gcodes file path. You will also need to define
-# a working directory. By default, the working directory is the directory this code is run in and the code assumes a
-# directory labeled "gcodes" is present.
-#
-# The process parameters not listed here that need to be input during gcode development in Slic3r are scan strategy and
-# and hatch spacing. Layer height is accepted within this script, but it is expected to align with the Slic3r input.
-# Lastly, if an FGM build is being modeled, all subsquent parts in the build direction must be offset with the
-# z-offset feature within Slic3r for the event series of the stacked parts to align
-
 # Import necessary packages
 import csv
 import datetime
@@ -54,7 +30,7 @@ def perturb(input_arr, dev, type='gaussian'):
     # This is a function to perturb an array of values by a given amount. Currently supports a gaussian/normal
     # distribution with type='gaussian', a strict +/- with type='strict', and uniform with type='uniform'.
     :param input_arr: array or list of power values
-    :param dev: deviation to add or subtract from the laser power
+    :param dev: deviation to add or subtract from the power
     :param type: type of perturbation. options are gaussian/normal distribution around the dev value or strict
     for +/- dev value
     :return: perturbed array
@@ -332,17 +308,17 @@ if not args.input_gcode:
             gcode_filename = os.path.join(os.getcwd(), file)
             break
     if not gcode_filename:
-        exit("Error: No gcode file passed as argument and could not find .gcode file in working directory")
+        exit("Error: No g-code file passed as argument and could not find g-code file in working directory")
     else:
-        print("No gcode file passed as argument. Using {} as gcode file".format(gcode_filename))
+        print("No g-code file passed as argument. Using {} as g-code file".format(gcode_filename))
 else:
     gcode_filename = args.input_gcode
     if args.input_gcode[-5:] == "gcode":
         if not os.path.isfile(gcode_filename):
             # Check to see if a gcode file is in the given path
-            exit("Error: gcode file passed as input was not found, given {}".format(gcode_filename))
+            exit("Error: g-code file passed as input was not found, given {}".format(gcode_filename))
     else:
-        exit("Error: File passed as input is not a gcode file (must end with .gcode), given {}".format(gcode_filename))
+        exit("Error: File passed as input is not a g-code file (must end with .gcode), given {}".format(gcode_filename))
 
 basename = args.outfile_name
 output_dir = args.output_dir
@@ -358,7 +334,7 @@ if not os.path.isdir(output_dir):
 # Gcode Reading 
 
 with open(gcode_filename, "r") as gcode_file:
-    print("Reading gcode file")
+    print("Reading g-code file")
     # more variables needed for reading gcodes
     x = []
     y = []
@@ -403,7 +379,7 @@ with open(gcode_filename, "r") as gcode_file:
                     elif curr_f == contour_f_val:
                         power.append(contour_power) 
                     else:
-                        exit("ERROR: gcode contains unexpected F values. Verify that the speed used in gcode is {} for infill region and {} for contour region.".format(infill_f_val/60 , contour_f_val/60))
+                        exit("ERROR: g-code contains unexpected F values. Verify that the speed used in g-code file is {} for infill region and {} for contour region.".format(infill_f_val/60 , contour_f_val/60))
                 else:
                     power.append(0)
 
@@ -421,7 +397,7 @@ curr_sec = "" # tracks current section
 print("Populating event series output")
 for i in range(1, len(x)):
     if group_flag:
-        # set scan speed according to input file groups if needed
+        # set speed according to input file groups if needed
         group_idx = get_idx_from_ranges(j-2, intervals) 
         if group_idx == -1:
             break
@@ -477,7 +453,8 @@ for i in range(1, len(x)):
     time += del_t
     
     # Recording gcode converted values of x, y, z, power, and time to output arrays
-    # This step occurs to assist the user for reading the output event series. The z-jump could take place with no points in between if desired
+    # This step occurs to assist the user for reading the output event series. The z-jump 
+    # could take place with no points in between if desired
     if j < len(z_posl): #if j is less than the total number of layers in the build
         if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
             # peform a z jump of layer_height distance
@@ -515,7 +492,7 @@ if dwell:
 else:
     print("Skipping dwell")
 
-# The following develops the wiper event series from laser position data and constructs the output power array. 
+# The following develops the wiper event series from position data and constructs the output power array. 
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 if roller:
     # initialize roller arrays
@@ -546,7 +523,7 @@ if power_fluc:
 else:
     print("Skipping power fluctuation")
 
-# exporting laser event series
+# exporting event series
 with open(main_event_series, 'w', newline='') as csvfile:
     print("Writing print path event series to {}".format(main_event_series))
     position_writer = csv.writer(csvfile)
@@ -603,7 +580,7 @@ if time_series:
             for ind in sample_inds[1:-1]:
                 position_writer.writerow([round(t_out[ind], ts_precision)])
 
-        position_writer.writerow([round(t_out[z_inc_arr[0]-count+1], ts_precision)]) # first scan complete
+        position_writer.writerow([round(t_out[z_inc_arr[0]-count+1], ts_precision)]) # first layer complete
 
         for i in range(len(z_inc_arr)):
             # t_wiper uses *2 because it has two points per z jump and (i+1) means skip the first two
@@ -618,7 +595,7 @@ if time_series:
             if i < len(z_inc_arr) - 1:
                 seek_from_ind = z_inc_arr[i+1]
             else:
-                # required to handle last scan block
+                # required to handle last movement block
                 seek_from_ind = len(x_out) - 1
 
             for end_count, j in enumerate(range(seek_from_ind, 0, -1)):
