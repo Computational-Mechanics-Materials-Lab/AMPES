@@ -1,15 +1,15 @@
 # Process Parameters
 layer_groups: 
   group_one:
-    layers: [1, 1025] # interval of layers in the group
+    layers: [1, 1025]        # interval of layers in the group
     infill:
       base_speed: 1.4        # base infill speed in mm/s
       output_speed: 1000     # overrided infill speed in mm/s
-      power: 400000          # power in mW
+      power: 300000          # power in mW
     contour:                 
       base_speed: 10         # base contour speed in mm/s
       output_speed: 1000     # overrided contour speed in mm/s
-      power: 400000          # power in mW
+      power: 300000          # power in mW
     interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
   group_two:                 
     layers: [1026, 1067]     # interval of layers in the group
@@ -87,10 +87,10 @@ layer_groups:
     layers: [1359, 2384]     # interval of layers in the group
     infill:
       output_speed: 1000     # overrided infill speed in mm/s
-      power: 400000          # power in mW
+      power: 300000          # power in mW
     contour:                 
       output_speed: 1000     # overrided infill speed in mm/s
-      power: 400000          # power in mW
+      power: 300000          # power in mW
     interlayer_dwell: 180    # dwell time in s. only relevant if dwell is true
     
 interval: 0                  # interpolated points between all points from gcode
