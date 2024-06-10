@@ -1,4 +1,4 @@
-# AMPES Script
+# AMPES: Additive Manufacturing Process Event Series generator
 
 **Authors**: David P. Failla Jr., Chuyen J. Nguyen
 
