@@ -1,10 +1,10 @@
 # Code Description
-# The Additive Manufacturing Process Event Series generator, AMPES, is a Python-based code for developing an event 
-# series to be used with numerical simulation work. AMPES leverages open-access Python modules and g-code slicing 
-# software to create an event series to represent the heat source following a tool path or laser path of a given 
-# additive manufacturing (AM) process. This allows for the capturing of raster scanning effects inherent of most AM 
-# processes within a thermomechanical modeling framework. While initially developed for use with laser-powder bed 
-# fusion (L-PBF), AMPES has been extended for usage with blown-powder laser directed energy deposition (L-DED), wire 
+# The Additive Manufacturing Process Event Series generator, AMPES, is a Python-based code for developing an event
+# series to be used with numerical simulation work. AMPES leverages open-access Python modules and g-code slicing
+# software to create an event series to represent the heat source following a tool path or laser path of a given
+# additive manufacturing (AM) process. This allows for the capturing of raster scanning effects inherent of most AM
+# processes within a thermomechanical modeling framework. While initially developed for use with laser-powder bed
+# fusion (L-PBF), AMPES has been extended for usage with blown-powder laser directed energy deposition (L-DED), wire
 # arc directed energy deposition (WA-DED), and fused deposition modeling (FDM).
 #######################################################################################################################
 # Written by:
@@ -24,6 +24,7 @@ import re
 from itertools import chain
 from sys import exit
 
+
 # Functions
 def perturb(input_arr, dev, type='gaussian'):
     """
@@ -42,33 +43,35 @@ def perturb(input_arr, dev, type='gaussian'):
     if type == 'gaussian':
         vals = rng.normal(scale=1.0, size=arr.shape)
         vals *= dev
-        vals[input_arr==0] = 0
+        vals[input_arr == 0] = 0
     elif type == 'strict':
         vals = rng.integers(low=-1, high=2, size=arr.shape)
         vals *= dev
-        vals[input_arr==0] = 0
+        vals[input_arr == 0] = 0
     elif type == 'uniform':
         vals = rng.uniform(low=-1, high=1.0, size=arr.shape)
         vals *= dev
-        vals[input_arr==0] = 0
+        vals[input_arr == 0] = 0
     else:
         vals = np.zeros(arr.shape)
 
     return arr + vals
 
+
 def verify_config_var_types(input: dict, types: dict, tracker: list = None):
     """
     Recursively iterates through items of the input config dictionary and verifies them against the given types.
     """
-    get_key_recursion = lambda a: " in ".join("'{}'".format(x) for x in reversed(a))
+    get_key_recursion = lambda a: " in ".join("'{}'".format(x)
+                                              for x in reversed(a))
 
     def get_type_strings(types):
         type_str = "("
         if type(types) == tuple:
-            type_str +=", ".join(x.__name__ for x in types)
+            type_str += ", ".join(x.__name__ for x in types)
         else:
             type_str += types.__name__
-        type_str +=")"
+        type_str += ")"
         return type_str
 
     if tracker is None:
@@ -83,10 +86,15 @@ def verify_config_var_types(input: dict, types: dict, tracker: list = None):
             if key in types.keys():
                 if not isinstance(input[key], types[key]):
                     if types[key] is float and isinstance(input[key], int):
-                        print("Warning: {} is int, expected float".format(get_key_recursion(tracker)))
+                        print("Warning: {} is int, expected float".format(
+                            get_key_recursion(tracker)))
                     else:
-                        raise TypeError("TypeError: Config variable {} is not expected type {}".format(get_key_recursion(tracker), get_type_strings(types[key])))
+                        raise TypeError(
+                            "TypeError: Config variable {} is not expected type {}"
+                            .format(get_key_recursion(tracker),
+                                    get_type_strings(types[key])))
             del tracker[-1]
+
 
 def handle_cond_var(cond_var_key, val_var_key, conf_dict):
     """
@@ -98,12 +106,14 @@ def handle_cond_var(cond_var_key, val_var_key, conf_dict):
             try:
                 val_var = conf_dict[val_var_key]
             except KeyError as e:
-                raise KeyError("'{}' is required if '{}' is true".format(val_var_key, cond_var_key))
+                raise KeyError("'{}' is required if '{}' is true".format(
+                    val_var_key, cond_var_key))
         else:
             val_var = None
         return cond_var, val_var
     except KeyError as e:
         raise e
+
 
 def get_idx_from_ranges(num: int, ranges: list):
     for i in range(len(ranges)):
@@ -111,25 +121,26 @@ def get_idx_from_ranges(num: int, ranges: list):
             return i
     return False
 
+
 # Constants
 config_var_types = {
     "layer_groups": dict,
     "interval": int,
-    "base_speed": (int,float),
-    "output_speed": (int,float),
+    "base_speed": (int, float),
+    "output_speed": (int, float),
     "layers": list,
-    "power": (int,float),
-    "interlayer_dwell": (int,float),
-    "layer_height": (int,float),
+    "power": (int, float),
+    "interlayer_dwell": (int, float),
+    "layer_height": (int, float),
     "substrate": float,
-    "xorg_shift": (int,float),
-    "yorg_shift": (int,float),
-    "zorg_shift": (int,float),
+    "xorg_shift": (int, float),
+    "yorg_shift": (int, float),
+    "zorg_shift": (int, float),
     "dwell": bool,
     "roller": bool,
-    "w_dwell": (int,float),
+    "w_dwell": (int, float),
     "power_fluctuation": bool,
-    "deviation": (int,float),
+    "deviation": (int, float),
     "scheme": str,
     "comment_event_series": bool,
     "comment_string": str,
@@ -138,21 +149,38 @@ config_var_types = {
     "time_series_sample_points": int
 }
 
-power_fluc_schemes = [
-    "gaussian",
-    "strict",
-    "uniform"
-]
+power_fluc_schemes = ["gaussian", "strict", "uniform"]
 
-pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?") # matching pattern for coordinate strings
+pattern = re.compile(r"[XYZFE]-?\d+\.?\d*(e[\-\+]\d*)?"
+                    )  # matching pattern for coordinate strings
 
-# Argument Parsing 
+# Argument Parsing
 cwd = os.getcwd()
-parser = argparse.ArgumentParser(prog="AM Tech", description="Reads a RepRap gcode file and outputs Abaqus compatible .inp files based off of it.")
-parser.add_argument("-i", "--input_gcode", help="Location of the gcode file to use as input")
-parser.add_argument("-c", "--config", help="Config input YAML that will be used to initialize parameters, defaults to <current working dir>/input.yaml", default=os.path.join(cwd, "input.yaml"))
-parser.add_argument("-d", "--output_dir", help="Directory to output files to, defaults to <current working dir>/output", default=os.path.join(cwd, "output"))
-parser.add_argument("-o", "--outfile_name", help="Basename for the files that will be outputted, defaults to \"output\"", default="output")
+parser = argparse.ArgumentParser(
+    prog="AM Tech",
+    description=
+    "Reads a RepRap gcode file and outputs Abaqus compatible .inp files based off of it."
+)
+parser.add_argument("-i",
+                    "--input_gcode",
+                    help="Location of the gcode file to use as input")
+parser.add_argument(
+    "-c",
+    "--config",
+    help=
+    "Config input YAML that will be used to initialize parameters, defaults to <current working dir>/input.yaml",
+    default=os.path.join(cwd, "input.yaml"))
+parser.add_argument(
+    "-d",
+    "--output_dir",
+    help=
+    "Directory to output files to, defaults to <current working dir>/output",
+    default=os.path.join(cwd, "output"))
+parser.add_argument(
+    "-o",
+    "--outfile_name",
+    help="Basename for the files that will be outputted, defaults to \"output\"",
+    default="output")
 
 args = parser.parse_args()
 
@@ -167,9 +195,11 @@ if os.path.isfile(args.config):
     except Exception as e:
         print(e)
         print('')
-        exit("Error: Could not load input YAML file, given {}".format(args.config))
+        exit("Error: Could not load input YAML file, given {}".format(
+            args.config))
 else:
-    exit("Error: Config YAML file passed was not found, given {}".format(args.config))
+    exit("Error: Config YAML file passed was not found, given {}".format(
+        args.config))
 
 try:
     verify_config_var_types(config, config_var_types)
@@ -185,11 +215,14 @@ try:
     roller, w_dwell = handle_cond_var("roller", "w_dwell", config)
     process_param_request = config["process_param_request"]
     substrate = config["substrate"]
-    time_series, time_series_sample_points = handle_cond_var("time_series", "time_series_sample_points", config)
+    time_series, time_series_sample_points = handle_cond_var(
+        "time_series", "time_series_sample_points", config)
     #sample_point_count = config["sample_point_count"] not yet implemented
-    power_fluc, deviation = handle_cond_var("power_fluctuation", "deviation", config)
+    power_fluc, deviation = handle_cond_var("power_fluctuation", "deviation",
+                                            config)
     _, scheme = handle_cond_var("power_fluctuation", "scheme", config)
-    comment_event_series, comment_string= handle_cond_var("comment_event_series", "comment_string", config)
+    comment_event_series, comment_string = handle_cond_var(
+        "comment_event_series", "comment_string", config)
     # org_shift used if event series origin is not the same as mesh origin
     xorg_shift = config["xorg_shift"]
     yorg_shift = config["yorg_shift"]
@@ -208,50 +241,63 @@ try:
     # handle power fluctuation scheme validity
     if power_fluc:
         if scheme not in power_fluc_schemes:
-            exit("Error: Scheme given '{}' not in list of valid schemes {}".format(scheme, power_fluc_schemes))
+            exit("Error: Scheme given '{}' not in list of valid schemes {}".
+                 format(scheme, power_fluc_schemes))
 
     # warn for time points demanded, but being 0
     if time_series:
         if time_series_sample_points == 0:
-            print("Warning: Time series requested, but number of time points requested between layers is 0")
+            print(
+                "Warning: Time series requested, but number of time points requested between layers is 0"
+            )
 
 except KeyError as e:
-    exit("Error: Config YAML does not contain expected key: {}".format(e.args[0]))
+    exit("Error: Config YAML does not contain expected key: {}".format(
+        e.args[0]))
 
 # process layer_groups variable
-try: 
+try:
     layer_group_keys = layer_groups.keys()
     layer_group_list = list(layer_groups.values())
-    group_flag = False # boolean flag for if there is more than one group
+    group_flag = False  # boolean flag for if there is more than one group
     if len(layer_group_list) > 1 or "layers" in layer_group_list[0].keys():
         # get ranges from the intervals in layer_groups
-        group_flag = True 
-        intervals = [range(layer_group["layers"][0]-1, layer_group["layers"][1]+1) for layer_group in layer_group_list]
+        group_flag = True
+        intervals = [
+            range(layer_group["layers"][0] - 1, layer_group["layers"][1] + 1)
+            for layer_group in layer_group_list
+        ]
 
         # use first layer group's speeds to determine f-value speeds to check
         first_layer_group = layer_group_list[0]
         if "base_speed" not in first_layer_group["infill"].keys() or \
            "base_speed" not in first_layer_group["contour"].keys():
-                raise KeyError("The first layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode.")
-        infill_f_val =  first_layer_group["infill"]["base_speed"] * 60 
-        contour_f_val =  first_layer_group["contour"]["base_speed"] * 60 
+            raise KeyError(
+                "The first layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode."
+            )
+        infill_f_val = first_layer_group["infill"]["base_speed"] * 60
+        contour_f_val = first_layer_group["contour"]["base_speed"] * 60
 
         for layer_group in layer_group_list[1:]:
             if "output_speed" not in layer_group["infill"].keys() or \
                "output_speed" not in layer_group["contour"].keys():
-                raise KeyError("Layer groups' infill and contour sections after first layer group must contain an 'output_speed' variable")
+                raise KeyError(
+                    "Layer groups' infill and contour sections after first layer group must contain an 'output_speed' variable"
+                )
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
         if "base_speed" not in layer_group["infill"].keys() or \
            "base_speed" not in layer_group["contour"].keys():
-                raise KeyError("The layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode.")
-        infill_f_val =  layer_group["infill"]["base_speed"] * 60
+            raise KeyError(
+                "The layer group's sections must contain a 'base_speed' variable set to the corresponding section's speed used within the gcode."
+            )
+        infill_f_val = layer_group["infill"]["base_speed"] * 60
         contour_f_val = layer_group["contour"]["base_speed"] * 60
         infill_power = layer_group["infill"]["power"]
         contour_power = layer_group["contour"]["power"]
         interlayer_dwell = layer_group["interlayer_dwell"]
-    
+
         # handle optional output speed values
         if "output_speed" not in layer_group["infill"].keys():
             infill_speed = layer_group["infill"]["base_speed"]
@@ -272,14 +318,16 @@ if roller:
         if group_flag:
             for layer_group in layer_group_list:
                 if w_dwell > layer_group["interlayer_dwell"]:
-                     exit("Error: w_dwell time must be lower than all interlayer_dwell times")
+                    exit(
+                        "Error: w_dwell time must be lower than all interlayer_dwell times"
+                    )
         else:
             if w_dwell > interlayer_dwell:
-                exit("Error: w_dwell time must be lower than the interlayer_dwell time")
+                exit(
+                    "Error: w_dwell time must be lower than the interlayer_dwell time"
+                )
     else:
         exit("Error: dwell must be enabled if roller is enabled")
-
-
 
 # used for recording time to completion
 e = datetime.datetime.now()
@@ -308,17 +356,24 @@ if not args.input_gcode:
             gcode_filename = os.path.join(os.getcwd(), file)
             break
     if not gcode_filename:
-        exit("Error: No g-code file passed as argument and could not find g-code file in working directory")
+        exit(
+            "Error: No g-code file passed as argument and could not find g-code file in working directory"
+        )
     else:
-        print("No g-code file passed as argument. Using {} as g-code file".format(gcode_filename))
+        print(
+            "No g-code file passed as argument. Using {} as g-code file".format(
+                gcode_filename))
 else:
     gcode_filename = args.input_gcode
     if args.input_gcode[-5:] == "gcode":
         if not os.path.isfile(gcode_filename):
             # Check to see if a gcode file is in the given path
-            exit("Error: g-code file passed as input was not found, given {}".format(gcode_filename))
+            exit("Error: g-code file passed as input was not found, given {}".
+                 format(gcode_filename))
     else:
-        exit("Error: File passed as input is not a g-code file (must end with .gcode), given {}".format(gcode_filename))
+        exit(
+            "Error: File passed as input is not a g-code file (must end with .gcode), given {}"
+            .format(gcode_filename))
 
 basename = args.outfile_name
 output_dir = args.output_dir
@@ -331,7 +386,7 @@ time_series_out = filename_start + "_time_series.inp"
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
 
-# Gcode Reading 
+# Gcode Reading
 
 with open(gcode_filename, "r") as gcode_file:
     print("Reading g-code file")
@@ -345,7 +400,8 @@ with open(gcode_filename, "r") as gcode_file:
     z_pos = 0
     # removing white spaces on lines with G1 or G0
     for line in gcode_file:
-        if line.startswith("G1") or line.startswith("G0"):  # only reads movement commands
+        if line.startswith("G1") or line.startswith(
+                "G0"):  # only reads movement commands
             # Replacing ; with single space and splitting into list
             line = line.replace(';', ' ').split()
             # Add coordinates to corresponding arrays # changed linestring here
@@ -360,7 +416,8 @@ with open(gcode_filename, "r") as gcode_file:
                     elif item[0] == "Z":
                         z.append(float(item[1:]))
                         if group_flag:
-                            group_idx = get_idx_from_ranges(len(z)-1, intervals)
+                            group_idx = get_idx_from_ranges(
+                                len(z) - 1, intervals)
                             if group_idx == -1:
                                 # break at z value since we don't want to record past a layer jump outside of ranges
                                 break
@@ -372,33 +429,41 @@ with open(gcode_filename, "r") as gcode_file:
             if "X" in "".join(line):
                 if "E" in "".join(line):
                     if group_flag:
-                        infill_power = layer_group_list[group_idx]["infill"]["power"]
-                        contour_power = layer_group_list[group_idx]["contour"]["power"]
+                        infill_power = layer_group_list[group_idx]["infill"][
+                            "power"]
+                        contour_power = layer_group_list[group_idx]["contour"][
+                            "power"]
                     if curr_f == infill_f_val:
-                        power.append(infill_power) 
+                        power.append(infill_power)
                     elif curr_f == contour_f_val:
-                        power.append(contour_power) 
+                        power.append(contour_power)
                     else:
-                        exit("ERROR: g-code contains unexpected F values. Verify that the speed used in g-code file is {} for infill region and {} for contour region.".format(infill_f_val/60 , contour_f_val/60))
+                        exit(
+                            "ERROR: g-code contains unexpected F values. Verify that the speed used in g-code file is {} for infill region and {} for contour region."
+                            .format(infill_f_val / 60, contour_f_val / 60))
                 else:
                     power.append(0)
 
 # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
 # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
 # the position command value is reached, it goes to the next value
-z_coord = z[1]; j = 2
+z_coord = z[1]
+j = 2
 x_out = np.array([x[0]])
 y_out = np.array([y[0]])
 z_out = np.array([z[1]])
 power_out = np.array([0])
 t_out = np.array([time])
-section_recorder = {"indexes": [], "type": []} # for commenting infill and contour sections
-curr_sec = "" # tracks current section
+section_recorder = {
+    "indexes": [],
+    "type": []
+}  # for commenting infill and contour sections
+curr_sec = ""  # tracks current section
 print("Populating event series output")
 for i in range(1, len(x)):
     if group_flag:
         # set speed according to input file groups if needed
-        group_idx = get_idx_from_ranges(j-2, intervals) 
+        group_idx = get_idx_from_ranges(j - 2, intervals)
         if group_idx == -1:
             break
 
@@ -415,13 +480,14 @@ for i in range(1, len(x)):
                 contour_speed = layer_group["contour"]["output_speed"]
         else:
             infill_speed = layer_group_list[group_idx]["infill"]["output_speed"]
-            contour_speed = layer_group_list[group_idx]["contour"]["output_speed"]
+            contour_speed = layer_group_list[group_idx]["contour"][
+                "output_speed"]
 
-    del_x = x[i] - x[i-1]  # incremental change in x
-    del_y = y[i] - y[i-1]  # incremental change in y
-    
+    del_x = x[i] - x[i - 1]  # incremental change in x
+    del_y = y[i] - y[i - 1]  # incremental change in y
+
     # determining time to move between points based on xy data and velocity
-    del_d = math.sqrt(pow(del_x,2) + pow(del_y,2))
+    del_d = math.sqrt(pow(del_x, 2) + pow(del_y, 2))
 
     if f[i] == infill_f_val:
         vel = infill_speed
@@ -435,15 +501,15 @@ for i in range(1, len(x)):
             section_recorder["indexes"].append(len(x_out) - 1)
             section_recorder["type"].append("contour")
             curr_sec = "contour"
-       
-    del_t = del_d/vel
+
+    del_t = del_d / vel
 
     # add interpolated values to output arrays
-    tmp_x = np.linspace(x[i-1], x[i], interval+2)
-    tmp_y = np.linspace(y[i-1], y[i], interval+2)
-    tmp_z = [z_coord]*(interval+2)
-    tmp_p = [power[i]]*(interval+2)
-    tmp_t = np.linspace(time, time+del_t, interval+2)
+    tmp_x = np.linspace(x[i - 1], x[i], interval + 2)
+    tmp_y = np.linspace(y[i - 1], y[i], interval + 2)
+    tmp_z = [z_coord] * (interval + 2)
+    tmp_p = [power[i]] * (interval + 2)
+    tmp_t = np.linspace(time, time + del_t, interval + 2)
     x_out = np.concatenate([x_out[:-1], tmp_x])
     y_out = np.concatenate([y_out[:-1], tmp_y])
     z_out = np.concatenate([z_out[:-1], tmp_z])
@@ -451,12 +517,14 @@ for i in range(1, len(x)):
     t_out = np.concatenate([t_out[:-1], tmp_t])
 
     time += del_t
-    
+
     # Recording gcode converted values of x, y, z, power, and time to output arrays
-    # This step occurs to assist the user for reading the output event series. The z-jump 
+    # This step occurs to assist the user for reading the output event series. The z-jump
     # could take place with no points in between if desired
-    if j < len(z_posl): #if j is less than the total number of layers in the build
-        if i == z_posl[j]-1: #if i is equal to one less than the number of z positions of the jth layer
+    if j < len(
+            z_posl):  #if j is less than the total number of layers in the build
+        if i == z_posl[
+                j] - 1:  #if i is equal to one less than the number of z positions of the jth layer
             # peform a z jump of layer_height distance
             del_z = layer_height
 
@@ -465,23 +533,24 @@ for i in range(1, len(x)):
             tmp_z = np.array([curr_z, curr_z + del_z])
             z_out = np.concatenate([z_out, tmp_z])
             # copy x-y values for the jump since it is stationary
-            x_out = np.concatenate([x_out, [x_out[-1]]*2])
-            y_out = np.concatenate([y_out, [y_out[-1]]*2])
-            power_out = np.concatenate([power_out, [0]*2])
-            t_out = np.concatenate([t_out, [t_out[-1]]*2])
+            x_out = np.concatenate([x_out, [x_out[-1]] * 2])
+            y_out = np.concatenate([y_out, [y_out[-1]] * 2])
+            power_out = np.concatenate([power_out, [0] * 2])
+            t_out = np.concatenate([t_out, [t_out[-1]] * 2])
 
             z_coord += layer_height
             j += 1
-            
+
 if dwell or time_series:
     # create layer jump tracking array if required
-    z_inc_arr = [(z_posl[i]-1)*(interval+1)+(i-1)*2 for i in range(2, len(z_posl))]
+    z_inc_arr = [(z_posl[i] - 1) * (interval + 1) + (i - 1) * 2
+                 for i in range(2, len(z_posl))]
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
     print("Adjusting output times for dwell")
     if roller:
-        t_out += w_dwell # increment whole t_out array by roller time
+        t_out += w_dwell  # increment whole t_out array by roller time
     for i in range(len(z_inc_arr)):
         if group_flag:
             group_idx = get_idx_from_ranges(i, intervals)
@@ -492,16 +561,16 @@ if dwell:
 else:
     print("Skipping dwell")
 
-# The following develops the wiper event series from position data and constructs the output power array. 
+# The following develops the wiper event series from position data and constructs the output power array.
 # The x and y are fixed to match the AM machine and will have the same wiper characteristics for any print
 if roller:
     # initialize roller arrays
     t_roller = [t_out[0]]
     z_roller = list()
     for i in z_inc_arr:
-            # when z increases, append the last item
-            t_roller.append(t_out[i])
-            z_roller.append(z_out[i+2])
+        # when z increases, append the last item
+        t_roller.append(t_out[i])
+        z_roller.append(z_out[i + 2])
 
     # end by appending the last item
     t_roller.append(t_out[i])
@@ -509,8 +578,12 @@ if roller:
 
     if dwell:
         # utilize itertools to produce flattened arrays transformed with the expected dwell times
-        t_wiper = chain.from_iterable((t_roller[i]-w_dwell, t_roller[i]) if i < len(t_roller) - 1 else (None, None) for i in range(len(t_roller)))
-        z_wiper = chain.from_iterable((z_roller[i], z_roller[i]) for i in range(len(z_roller)))
+        t_wiper = chain.from_iterable(
+            (t_roller[i] - w_dwell,
+             t_roller[i]) if i < len(t_roller) - 1 else (None, None)
+            for i in range(len(t_roller)))
+        z_wiper = chain.from_iterable(
+            (z_roller[i], z_roller[i]) for i in range(len(z_roller)))
         # need to truncate extra values from above process
         t_wiper = list(t_wiper)[:-2]
         z_wiper = list(z_wiper)
@@ -529,16 +602,23 @@ with open(main_event_series, 'w', newline='') as csvfile:
     position_writer = csv.writer(csvfile)
     rows = []
     for i in range(len(t_out)):
-        row = [round(t_out[i], es_precision), round(x_out[i]+xorg_shift, es_precision), round(y_out[i]+yorg_shift, es_precision), round(z_out[i] -
-                                                                                substrate+zorg_shift, 3), round(power_out[i], es_precision)]
-        rows.append(row) 
+        row = [
+            round(t_out[i], es_precision),
+            round(x_out[i] + xorg_shift, es_precision),
+            round(y_out[i] + yorg_shift, es_precision),
+            round(z_out[i] - substrate + zorg_shift, 3),
+            round(power_out[i], es_precision)
+        ]
+        rows.append(row)
     if comment_event_series:
         # for adding comments that separate sections between contour and infill
         section_sep_idxs = np.array(section_recorder["indexes"])
         section_sep_types = np.array(section_recorder["type"])
         # iterate backwards in order to not mess up indexing while inserting values
-        for i in range(len(section_sep_idxs)-1, -1, -1):
-            rows.insert(section_sep_idxs[i], [" ".join([comment_string, section_sep_types[i], "section"])])
+        for i in range(len(section_sep_idxs) - 1, -1, -1):
+            rows.insert(
+                section_sep_idxs[i],
+                [" ".join([comment_string, section_sep_types[i], "section"])])
     position_writer.writerows(rows)
 
 # exporting wiper/roller event series
@@ -548,10 +628,16 @@ if roller:
         position_writer = csv.writer(csvfile)
         for i in range(len(z_wiper)):
             if i % 2 == 0:
-                row = [round(t_wiper[i], es_precision), -90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 1.0]
+                row = [
+                    round(t_wiper[i], es_precision), -90, 180,
+                    round(z_wiper[i] - substrate + zorg_shift, 3), 1.0
+                ]
                 position_writer.writerow(row)
-            else:    
-                row = [round(t_wiper[i], es_precision), 90, 180, round(z_wiper[i]-substrate+zorg_shift, 3), 0.0]
+            else:
+                row = [
+                    round(t_wiper[i], es_precision), 90, 180,
+                    round(z_wiper[i] - substrate + zorg_shift, 3), 0.0
+                ]
                 position_writer.writerow(row)
 
 # creating temperature output write times for at the end of the print phase for each layer
@@ -561,66 +647,75 @@ if time_series:
         position_writer = csv.writer(csvfile)
         # write out initial points from heatup time
         if roller:
-            position_writer.writerow([round(t_wiper[0], ts_precision)]) # first deposit
-        position_writer.writerow([round(t_out[0], ts_precision)]) # first power on
+            position_writer.writerow([round(t_wiper[0],
+                                            ts_precision)])  # first deposit
+        position_writer.writerow([round(t_out[0],
+                                        ts_precision)])  # first power on
 
         for count, i in enumerate(range(z_inc_arr[0], 0, -1)):
-                        if power_out[i] != 0:
-                            break
+            if power_out[i] != 0:
+                break
 
-        first_end_ind = z_inc_arr[0]-count+1
+        first_end_ind = z_inc_arr[0] - count + 1
 
         if time_series_sample_points > 0:
             # add additional sample points between power start and end for a layer
             if time_series_sample_points == 1:
-                sample_inds = [int((first_end_ind)/2), 0]
+                sample_inds = [int((first_end_ind) / 2), 0]
             else:
-                sample_inds = np.linspace(0, first_end_ind, time_series_sample_points+2).astype(int)
+                sample_inds = np.linspace(
+                    0, first_end_ind, time_series_sample_points + 2).astype(int)
 
             for ind in sample_inds[1:-1]:
                 position_writer.writerow([round(t_out[ind], ts_precision)])
 
-        position_writer.writerow([round(t_out[z_inc_arr[0]-count+1], ts_precision)]) # first layer complete
+        position_writer.writerow(
+            [round(t_out[z_inc_arr[0] - count + 1],
+                   ts_precision)])  # first layer complete
 
         for i in range(len(z_inc_arr)):
             # t_wiper uses *2 because it has two points per z jump and (i+1) means skip the first two
             #   since those do not correspond to a jump but rather the preheat time
-            for start_count, j in enumerate(range(z_inc_arr[i], len(power_out))):
+            for start_count, j in enumerate(range(z_inc_arr[i],
+                                                  len(power_out))):
                 # seek first non-zero value in power array after deposit
                 if power_out[j] != 0:
                     break
-            start_ind = z_inc_arr[i]+start_count
+            start_ind = z_inc_arr[i] + start_count
             power_start = t_out[start_ind]
             # seek layer end using reverse search from next layer jump
             if i < len(z_inc_arr) - 1:
-                seek_from_ind = z_inc_arr[i+1]
+                seek_from_ind = z_inc_arr[i + 1]
             else:
                 # required to handle last movement block
                 seek_from_ind = len(x_out) - 1
 
             for end_count, j in enumerate(range(seek_from_ind, 0, -1)):
                 # seek first non-zero value in power array prior to next z jump
-                            if power_out[j] != 0:
-                                break
+                if power_out[j] != 0:
+                    break
             if end_count != 0:
                 # this handles the case that the last point is a power-on point
-                end_ind = seek_from_ind-end_count+1
+                end_ind = seek_from_ind - end_count + 1
                 power_end = t_out[end_ind]
             else:
                 end_ind = seek_from_ind
                 power_end = t_out[end_ind]
 
-            
             if time_series_sample_points > 0:
                 # add additional sample points between power start and end for a layer
                 if time_series_sample_points == 1:
-                    sample_inds = [int((end_ind-start_ind)/2)+start_ind, 0]
+                    sample_inds = [
+                        int((end_ind - start_ind) / 2) + start_ind, 0
+                    ]
                 else:
-                    sample_inds = np.linspace(start_ind, end_ind, time_series_sample_points+2).astype(int)
+                    sample_inds = np.linspace(start_ind, end_ind,
+                                              time_series_sample_points +
+                                              2).astype(int)
 
             # write out to file
             if roller:
-                deposit_start = t_wiper[(i+1)*2]
+                deposit_start = t_wiper[(i + 1) * 2]
                 position_writer.writerow([round(deposit_start, ts_precision)])
             position_writer.writerow([round(power_start, ts_precision)])
             if time_series_sample_points > 0:
@@ -632,10 +727,14 @@ else:
 
 # Exporting process parameters used in this run
 if process_param_request:
-    print("Writing process parameter csv file to {}".format(process_parameter_out))
+    print("Writing process parameter csv file to {}".format(
+        process_parameter_out))
     with open(process_parameter_out, 'w', newline='') as csvfile:
         position_writer = csv.writer(csvfile)
-        date_time = ["Developed {} at {}".format(e.strftime("%Y/%d/%m"), e.strftime("%H:%M"))]
+        date_time = [
+            "Developed {} at {}".format(e.strftime("%Y/%d/%m"),
+                                        e.strftime("%H:%M"))
+        ]
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         write_rows = []
@@ -644,40 +743,63 @@ if process_param_request:
             # determine output velocities
             write_rows.append(["##Print parameters"])
             write_rows.append(header)
-            write_rows.append(["Infill Base Velocity", infill_f_val/60, "mm/s"])
+            write_rows.append(
+                ["Infill Base Velocity", infill_f_val / 60, "mm/s"])
             write_rows.append(["Infill Output Velocity", infill_speed, "mm/s"])
             write_rows.append(["Infill Power", infill_power, "mW"])
-            write_rows.append(["Contour Base Velocity", contour_f_val/60, "mm/s"])
-            write_rows.append(["Contour Output Velocity", contour_speed, "mm/s"])
+            write_rows.append(
+                ["Contour Base Velocity", contour_f_val / 60, "mm/s"])
+            write_rows.append(
+                ["Contour Output Velocity", contour_speed, "mm/s"])
             write_rows.append(["Contour Power", contour_power, "mW"])
             write_rows.append(["Interlayer Dwell Time", interlayer_dwell, "s"])
         else:
             first_group = True
             for group_name, group_params in config["layer_groups"].items():
                 write_rows.append([])
-                write_rows.append(["##Layer group print parameters", group_name])
+                write_rows.append(
+                    ["##Layer group print parameters", group_name])
                 write_rows.append(header)
                 for key, value in group_params.items():
-                        if key == "layers":
-                            write_rows.append(["Layers in Group", value, "count"])
-                        elif key == "infill":
-                            infill_output_speed = value["base_speed"] if "output_speed" not in value.keys() else value["output_speed"]
-                            if first_group:
-                                write_rows.append(["Infill Base Velocity", value["base_speed"], "mm/s"])
-                            write_rows.append(["Infill Output Velocity", infill_output_speed, "mm/s"])
-                            write_rows.append(["Infill Power", value["power"], "mW"])
-                        elif key == "contour":
-                            contour_output_speed = value["base_speed"] if "output_speed" not in value.keys() else value["output_speed"]
-                            if first_group:
-                                write_rows.append(["Contour Base Velocity", value["base_speed"], "mm/s"])
-                            write_rows.append(["Contour Output Velocity", contour_output_speed, "mm/s"])
-                            write_rows.append(["Contour Power", value["power"], "mW"])
-                        elif key == "interlayer_dwell":
-                            write_rows.append(["Dwell Time", value, "s"])
-                        else:
-                            write_rows.append(["Unexpected item `{}`".format(key), value, "N/A"])
+                    if key == "layers":
+                        write_rows.append(["Layers in Group", value, "count"])
+                    elif key == "infill":
+                        infill_output_speed = value[
+                            "base_speed"] if "output_speed" not in value.keys(
+                            ) else value["output_speed"]
+                        if first_group:
+                            write_rows.append([
+                                "Infill Base Velocity", value["base_speed"],
+                                "mm/s"
+                            ])
+                        write_rows.append([
+                            "Infill Output Velocity", infill_output_speed,
+                            "mm/s"
+                        ])
+                        write_rows.append(
+                            ["Infill Power", value["power"], "mW"])
+                    elif key == "contour":
+                        contour_output_speed = value[
+                            "base_speed"] if "output_speed" not in value.keys(
+                            ) else value["output_speed"]
+                        if first_group:
+                            write_rows.append([
+                                "Contour Base Velocity", value["base_speed"],
+                                "mm/s"
+                            ])
+                        write_rows.append([
+                            "Contour Output Velocity", contour_output_speed,
+                            "mm/s"
+                        ])
+                        write_rows.append(
+                            ["Contour Power", value["power"], "mW"])
+                    elif key == "interlayer_dwell":
+                        write_rows.append(["Dwell Time", value, "s"])
+                    else:
+                        write_rows.append(
+                            ["Unexpected item `{}`".format(key), value, "N/A"])
                 first_group = False
-        
+
         if roller:
             write_rows.append([])
             write_rows.append(["##Roller parameters"])
@@ -696,6 +818,5 @@ if process_param_request:
             position_writer.writerow(row)
 else:
     print("Skipping process parameter output")
-        
 
 print("Complete" + "\n")
