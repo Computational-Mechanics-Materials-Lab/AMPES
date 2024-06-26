@@ -228,6 +228,9 @@ Files created by AMPES will output to the directory provided to the `output_dir`
 * `<outfile_name>_process_parameter.csv`: a csv file containing process parameter values provided in the input YAML configuration along with a date-of-generation created only if the configuration variable `process_param_request` is true
 * `<outfile_name>_time_series.inp`: a csv file containing time points corresponding to events inside the event series if `time_series` is set to true
 
+# Point of Contact
+
+Matthew W. Priddy - mwpriddy@me.msstate.edu
 
 # References
 
