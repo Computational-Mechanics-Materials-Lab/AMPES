@@ -30,7 +30,7 @@
 # arc directed energy deposition (WA-DED), and fused deposition modeling (FDM).
 #######################################################################################################################
 # Written by:
-# David P Failla
+# David P. Failla Jr.
 # Chuyen J. Nguyen
 #######################################################################################################################
 # Import necessary packages
