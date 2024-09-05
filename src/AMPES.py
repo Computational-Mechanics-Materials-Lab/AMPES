@@ -436,7 +436,11 @@ with open(gcode_filename, "r") as gcode_file:
                     elif item[0] == "Y":
                         y.append(float(item[1:]))
                     elif item[0] == "Z":
-                        z.append(float(item[1:]))
+                        #print(float(item[1:]))
+                        if float(item[1:]) == 12.61 :
+                            z.append(float(item[1:]) - 0.01)
+                        else :
+                            z.append(float(item[1:]))
                         if group_flag:
                             group_idx = get_idx_from_ranges(
                                 len(z) - 1, intervals)
