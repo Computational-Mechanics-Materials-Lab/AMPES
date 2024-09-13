@@ -155,6 +155,7 @@ config_var_types = {
     "power": (int, float),
     "interlayer_dwell": (int, float),
     "layer_height": (int, float),
+    "last_layer_height_change": (int, float),
     "substrate": float,
     "xorg_shift": (int, float),
     "yorg_shift": (int, float),
@@ -234,6 +235,7 @@ try:
     layer_groups = config["layer_groups"]
     interval = config["interval"]
     layer_height = config["layer_height"]
+    last_layer_height_change = config["last_layer_height_change"]
     dwell = config["dwell"]
     roller, w_dwell = handle_cond_var("roller", "w_dwell", config)
     process_param_request = config["process_param_request"]
@@ -563,6 +565,13 @@ for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=Fa
 
             z_coord += layer_height
             j += 1
+
+zmax_temp = max(z_out)
+if last_layer_height_change != 0 :
+    print("Adjusting last layer height")
+    for i in range(len(z_out)) :
+        if z_out[i] == zmax_temp :
+            z_out[i] = z_out[i] + last_layer_height_change
 
 if dwell or time_series:
     # create layer jump tracking array if required
