@@ -436,11 +436,7 @@ with open(gcode_filename, "r") as gcode_file:
                     elif item[0] == "Y":
                         y.append(float(item[1:]))
                     elif item[0] == "Z":
-                        #print(float(item[1:]))
-                        if float(item[1:]) == 12.61 :
-                            z.append(float(item[1:]) - 0.01)
-                        else :
-                            z.append(float(item[1:]))
+                        z.append(float(item[1:]))
                         if group_flag:
                             group_idx = get_idx_from_ranges(
                                 len(z) - 1, intervals)
@@ -566,6 +562,14 @@ for i in range(1, len(x)):
 
             z_coord += layer_height
             j += 1
+
+last_layer_height = -0.01
+zmax_temp = max(z_out)
+if last_layer_height != 0 :
+    print("Adjusting last layer height")
+    for i in range(len(z_out)) :
+        if z_out[i] == zmax_temp :
+            z_out[i] = z_out[i] + last_layer_height
 
 if dwell or time_series:
     # create layer jump tracking array if required
