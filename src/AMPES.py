@@ -45,6 +45,7 @@ import math
 import re
 from itertools import chain
 from sys import exit
+from tqdm import tqdm
 
 
 # Functions
@@ -411,7 +412,7 @@ if not os.path.isdir(output_dir):
 # Gcode Reading
 
 with open(gcode_filename, "r") as gcode_file:
-    print("Reading g-code file")
+    #print("Reading g-code file")
     # more variables needed for reading gcodes
     x = []
     y = []
@@ -421,50 +422,51 @@ with open(gcode_filename, "r") as gcode_file:
     power = []
     z_pos = 0
     # removing white spaces on lines with G1 or G0
-    for line in gcode_file:
-        if line.startswith("G1") or line.startswith(
-                "G0"):  # only reads movement commands
-            # Replacing ; with single space and splitting into list
-            line = line.replace(';', ' ').split()
-            # Add coordinates to corresponding arrays # changed linestring here
-            for item in line:
-                if pattern.fullmatch(item):
-                    if item[0] == "X":
-                        x.append(float(item[1:]))
-                        f.append(curr_f)
-                        z_pos += 1
-                    elif item[0] == "Y":
-                        y.append(float(item[1:]))
-                    elif item[0] == "Z":
-                        z.append(float(item[1:]))
+    for v in tqdm (range (100), desc="Reading g-code file",ascii=False, ncols=125):
+        for line in gcode_file:
+            if line.startswith("G1") or line.startswith(
+                    "G0"):  # only reads movement commands
+                # Replacing ; with single space and splitting into list
+                line = line.replace(';', ' ').split()
+                # Add coordinates to corresponding arrays # changed linestring here
+                for item in line:
+                    if pattern.fullmatch(item):
+                        if item[0] == "X":
+                            x.append(float(item[1:]))
+                            f.append(curr_f)
+                            z_pos += 1
+                        elif item[0] == "Y":
+                            y.append(float(item[1:]))
+                        elif item[0] == "Z":
+                            z.append(float(item[1:]))
+                            if group_flag:
+                                group_idx = get_idx_from_ranges(
+                                    len(z) - 1, intervals)
+                                if group_idx == -1:
+                                    # break at z value since we don't want to record past a layer jump outside of ranges
+                                    break
+                            z_posl.append(z_pos)  # Count of z positions per layer
+                        elif item[0] == "F":
+                            curr_f = float(item[1:])
+                if group_flag and group_idx == -1:
+                    break
+                if "X" in "".join(line):
+                    if "E" in "".join(line):
                         if group_flag:
-                            group_idx = get_idx_from_ranges(
-                                len(z) - 1, intervals)
-                            if group_idx == -1:
-                                # break at z value since we don't want to record past a layer jump outside of ranges
-                                break
-                        z_posl.append(z_pos)  # Count of z positions per layer
-                    elif item[0] == "F":
-                        curr_f = float(item[1:])
-            if group_flag and group_idx == -1:
-                break
-            if "X" in "".join(line):
-                if "E" in "".join(line):
-                    if group_flag:
-                        infill_power = layer_group_list[group_idx]["infill"][
-                            "power"]
-                        contour_power = layer_group_list[group_idx]["contour"][
-                            "power"]
-                    if curr_f == infill_f_val:
-                        power.append(infill_power)
-                    elif curr_f == contour_f_val:
-                        power.append(contour_power)
+                            infill_power = layer_group_list[group_idx]["infill"][
+                                "power"]
+                            contour_power = layer_group_list[group_idx]["contour"][
+                                "power"]
+                        if curr_f == infill_f_val:
+                            power.append(infill_power)
+                        elif curr_f == contour_f_val:
+                            power.append(contour_power)
+                        else:
+                            exit(
+                                "ERROR: g-code contains unexpected F values. Verify that the speed used in g-code file is {} for infill region and {} for contour region."
+                                .format(infill_f_val / 60, contour_f_val / 60))
                     else:
-                        exit(
-                            "ERROR: g-code contains unexpected F values. Verify that the speed used in g-code file is {} for infill region and {} for contour region."
-                            .format(infill_f_val / 60, contour_f_val / 60))
-                else:
-                    power.append(0)
+                        power.append(0)
 
 # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
 # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
@@ -481,8 +483,7 @@ section_recorder = {
     "type": []
 }  # for commenting infill and contour sections
 curr_sec = ""  # tracks current section
-print("Populating event series output")
-for i in range(1, len(x)):
+for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=False, ncols=125):
     if group_flag:
         # set speed according to input file groups if needed
         group_idx = get_idx_from_ranges(j - 2, intervals)
@@ -570,10 +571,9 @@ if dwell or time_series:
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
-    print("Adjusting output times for dwell")
     if roller:
         t_out += w_dwell  # increment whole t_out array by roller time
-    for i in range(len(z_inc_arr)):
+    for i in tqdm (range (1,len(z_inc_arr)), desc="Adjusting output times for dwell", ascii=False, ncols=125):
         if group_flag:
             group_idx = get_idx_from_ranges(i, intervals)
             if group_idx == -1:
@@ -623,7 +623,7 @@ with open(main_event_series, 'w', newline='') as csvfile:
     print("Writing print path event series to {}".format(main_event_series))
     position_writer = csv.writer(csvfile)
     rows = []
-    for i in range(len(t_out)):
+    for i in range (len(t_out)) : 
         row = [
             round(t_out[i], es_precision),
             round(x_out[i] + xorg_shift, es_precision),
