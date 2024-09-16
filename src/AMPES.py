@@ -426,8 +426,16 @@ with open(gcode_filename, "r") as gcode_file:
     # removing white spaces on lines with G1 or G0
     for v in tqdm (range (100), desc="Reading g-code file",ascii=False, ncols=125):
         for line in gcode_file:
+            #checks for gcode software to account for initial Z movement
+            if line.__contains__("Slic3r") :
+                print("\nSlic3r slicing software used")
+            elif line.__contains__("Cura") :
+                print("\nCura slicing software used")
+                #z.append(5) #modifies z_array if Cura was used to account for removal of initial Z value
             if line.startswith("G1") or line.startswith(
                     "G0"):  # only reads movement commands
+                # Adding 0 infront of decimal point for negative float values less than -1.0
+                line = line.replace('-.', '-0.')
                 # Replacing ; with single space and splitting into list
                 line = line.replace(';', ' ').split()
                 # Add coordinates to corresponding arrays # changed linestring here
@@ -528,7 +536,7 @@ for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=Fa
             curr_sec = "contour"
 
     del_t = del_d / vel
-
+    
     # add interpolated values to output arrays
     tmp_x = np.linspace(x[i - 1], x[i], interval + 2)
     tmp_y = np.linspace(y[i - 1], y[i], interval + 2)
@@ -540,16 +548,14 @@ for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=Fa
     z_out = np.concatenate([z_out[:-1], tmp_z])
     power_out = np.concatenate([power_out[:-1], tmp_p])
     t_out = np.concatenate([t_out[:-1], tmp_t])
-
+    
     time += del_t
 
     # Recording gcode converted values of x, y, z, power, and time to output arrays
     # This step occurs to assist the user for reading the output event series. The z-jump
     # could take place with no points in between if desired
-    if j < len(
-            z_posl):  #if j is less than the total number of layers in the build
-        if i == z_posl[
-                j] - 1:  #if i is equal to one less than the number of z positions of the jth layer
+    if j < len(z_posl):  #if j is less than the total number of layers in the build
+        if i == z_posl[j] - 1:  #if i is equal to one less than the number of z positions of the jth layer
             # peform a z jump of layer_height distance
             del_z = layer_height
 
@@ -562,16 +568,15 @@ for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=Fa
             y_out = np.concatenate([y_out, [y_out[-1]] * 2])
             power_out = np.concatenate([power_out, [0] * 2])
             t_out = np.concatenate([t_out, [t_out[-1]] * 2])
-
             z_coord += layer_height
             j += 1
-
+print(z_out[-1])
 zmax_temp = max(z_out)
 if last_layer_height_change != 0 :
     print("Adjusting last layer height")
-    for i in range(len(z_out)) :
-        if z_out[i] == zmax_temp :
-            z_out[i] = z_out[i] + last_layer_height_change
+    for L in range(len(z_out)) :
+        if z_out[L] == zmax_temp :
+            z_out[L] = z_out[L] + last_layer_height_change
 
 if dwell or time_series:
     # create layer jump tracking array if required
