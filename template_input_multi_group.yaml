@@ -21,6 +21,7 @@ layer_groups:
     
 interval: 1                  # interpolated points between all points from gcode
 layer_height: 0.0            # layer height in mm
+last_layer_height_change: 0  # last layer height change in mm
 substrate: 0.0               # substrate height in mm
 xorg_shift: 0.0              # origin shift in x in mm
 yorg_shift: 0.0              # origin shift in y in mm
