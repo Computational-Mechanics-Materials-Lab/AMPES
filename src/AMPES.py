@@ -426,8 +426,17 @@ with open(gcode_filename, "r") as gcode_file:
     # removing white spaces on lines with G1 or G0
     for v in tqdm (range (100), desc="Reading g-code file",ascii=False, ncols=125):
         for line in gcode_file:
+            #checks for gcode software to account for initial Z movement
+            if line.__contains__("Slic3r") :
+                z_start = 0
+            elif line.__contains__("Cura") :
+                z_start = 1
+                z.append(z_start) #modifies z_array if Cura was used to account for removal of initial Z value
+                z_posl.append(z_start)
             if line.startswith("G1") or line.startswith(
                     "G0"):  # only reads movement commands
+                # Adding 0 infront of decimal point for negative float values less than -1.0
+                line = line.replace('-.', '-0.')
                 # Replacing ; with single space and splitting into list
                 line = line.replace(';', ' ').split()
                 # Add coordinates to corresponding arrays # changed linestring here
@@ -470,10 +479,16 @@ with open(gcode_filename, "r") as gcode_file:
                     else:
                         power.append(0)
 
+#Declaration of Slicing software package used as noted in .gcode file. Slic3r is default
+if z_start == 1 :
+    print("Cura slicing software used")
+else :
+   print("Slic3r slicing software used") 
+
 # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
 # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
 # the position command value is reached, it goes to the next value
-z_coord = z[1]
+z_coord = z[1] #changed to 0 9/16 DPF
 j = 2
 x_out = np.array([x[0]])
 y_out = np.array([y[0]])
@@ -528,7 +543,7 @@ for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=Fa
             curr_sec = "contour"
 
     del_t = del_d / vel
-
+    
     # add interpolated values to output arrays
     tmp_x = np.linspace(x[i - 1], x[i], interval + 2)
     tmp_y = np.linspace(y[i - 1], y[i], interval + 2)
@@ -540,16 +555,14 @@ for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=Fa
     z_out = np.concatenate([z_out[:-1], tmp_z])
     power_out = np.concatenate([power_out[:-1], tmp_p])
     t_out = np.concatenate([t_out[:-1], tmp_t])
-
+    
     time += del_t
 
     # Recording gcode converted values of x, y, z, power, and time to output arrays
     # This step occurs to assist the user for reading the output event series. The z-jump
     # could take place with no points in between if desired
-    if j < len(
-            z_posl):  #if j is less than the total number of layers in the build
-        if i == z_posl[
-                j] - 1:  #if i is equal to one less than the number of z positions of the jth layer
+    if j < len(z_posl):  #if j is less than the total number of layers in the build
+        if i == z_posl[j] - 1:  #if i is equal to one less than the number of z positions of the jth layer
             # peform a z jump of layer_height distance
             del_z = layer_height
 
@@ -562,27 +575,25 @@ for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=Fa
             y_out = np.concatenate([y_out, [y_out[-1]] * 2])
             power_out = np.concatenate([power_out, [0] * 2])
             t_out = np.concatenate([t_out, [t_out[-1]] * 2])
-
             z_coord += layer_height
             j += 1
 
 zmax_temp = max(z_out)
 if last_layer_height_change != 0 :
     print("Adjusting last layer height")
-    for i in range(len(z_out)) :
-        if z_out[i] == zmax_temp :
-            z_out[i] = z_out[i] + last_layer_height_change
+    for L in range(len(z_out)) :
+        if z_out[L] == zmax_temp :
+            z_out[L] = z_out[L] + last_layer_height_change
 
 if dwell or time_series:
     # create layer jump tracking array if required
-    z_inc_arr = [(z_posl[i] - 1) * (interval + 1) + (i - 1) * 2
-                 for i in range(2, len(z_posl))]
+    z_inc_arr = [(z_posl[i] - 1) * (interval + 1) + (i - 1) * 2 for i in range(2,len(z_posl))]
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
     if roller:
         t_out += w_dwell  # increment whole t_out array by roller time
-    for i in tqdm (range (1,len(z_inc_arr)), desc="Adjusting output times for dwell", ascii=False, ncols=125):
+    for i in tqdm (range (len(z_inc_arr)), desc="Adjusting output times for dwell", ascii=False, ncols=125):
         if group_flag:
             group_idx = get_idx_from_ranges(i, intervals)
             if group_idx == -1:
@@ -769,6 +780,12 @@ if process_param_request:
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         write_rows = []
+        if z_start == 1 :
+            write_rows.append(["Cura slicing software used"])
+            write_rows.append(["for .gcode file generation"])
+        else :
+            write_rows.append(["Slic3r slicing software used"]) 
+            write_rows.append(["for .gcode file generation"])
         write_rows.append([])
         if not group_flag:
             # determine output velocities
@@ -841,6 +858,7 @@ if process_param_request:
         write_rows.append(["##Overall parameters"])
         write_rows.append(["Intervals", interval, "#"])
         write_rows.append(["Layer Height", layer_height, "mm"])
+        write_rows.append(["Last Layer Height Change", last_layer_height_change, "mm"])
         write_rows.append(["Substrate Thickness", substrate, "mm"])
         write_rows.append(["Origin Shift in X", xorg_shift, "mm"])
         write_rows.append(["Origin Shift in Y", yorg_shift, "mm"])
