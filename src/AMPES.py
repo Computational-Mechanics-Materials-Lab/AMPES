@@ -671,13 +671,13 @@ if roller:
         for i in range(len(z_wiper)):
             if i % 2 == 0:
                 row = [
-                    round(t_wiper[i], es_precision), -180, 270,
+                    round(t_wiper[i], es_precision), -125, 250,
                     round(z_wiper[i] - substrate + zorg_shift, 3), 1.0
                 ]
                 position_writer.writerow(row)
             else:
                 row = [
-                    round(t_wiper[i], es_precision), 180, 270,
+                    round(t_wiper[i], es_precision), 125, 250,
                     round(z_wiper[i] - substrate + zorg_shift, 3), 0.0
                 ]
                 position_writer.writerow(row)
