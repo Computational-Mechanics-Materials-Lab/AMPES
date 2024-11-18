@@ -163,6 +163,7 @@ config_var_types = {
     "dwell": bool,
     "roller": bool,
     "w_dwell": (int, float),
+    "roller_height_offset": (int, float),
     "power_fluctuation": bool,
     "deviation": (int, float),
     "scheme": str,
@@ -238,6 +239,7 @@ try:
     last_layer_height_change = config["last_layer_height_change"]
     dwell = config["dwell"]
     roller, w_dwell = handle_cond_var("roller", "w_dwell", config)
+    roller_height_offset = config["roller_height_offset"]
     process_param_request = config["process_param_request"]
     substrate = config["substrate"]
     time_series, time_series_sample_points = handle_cond_var(
@@ -672,13 +674,13 @@ if roller:
             if i % 2 == 0:
                 row = [
                     round(t_wiper[i], es_precision), -125, 250,
-                    round(z_wiper[i] - substrate + zorg_shift, 3), 1.0
+                    round(z_wiper[i] - substrate + zorg_shift + roller_height_offset, 3), 1.0
                 ]
                 position_writer.writerow(row)
             else:
                 row = [
                     round(t_wiper[i], es_precision), 125, 250,
-                    round(z_wiper[i] - substrate + zorg_shift, 3), 0.0
+                    round(z_wiper[i] - substrate + zorg_shift + roller_height_offset, 3), 0.0
                 ]
                 position_writer.writerow(row)
 
@@ -859,6 +861,7 @@ if process_param_request:
         write_rows.append(["Intervals", interval, "#"])
         write_rows.append(["Layer Height", layer_height, "mm"])
         write_rows.append(["Last Layer Height Change", last_layer_height_change, "mm"])
+        write_rows.append(["roller_height_offset", roller_height_offset, "mm"])
         write_rows.append(["Substrate Thickness", substrate, "mm"])
         write_rows.append(["Origin Shift in X", xorg_shift, "mm"])
         write_rows.append(["Origin Shift in Y", yorg_shift, "mm"])
