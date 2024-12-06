@@ -340,7 +340,7 @@ except KeyError as e:
     exit("Error: Layer groups missing expected variable: {}".format(e.args[0]))
 
 # logic check for dwell time given roller is enabled
-if roller:
+'''if roller:
     if dwell:
         if group_flag:
             for layer_group in layer_group_list:
@@ -354,7 +354,7 @@ if roller:
                     "Error: w_dwell time must be lower than the interlayer_dwell time"
                 )
     else:
-        exit("Error: dwell must be enabled if roller is enabled")
+        exit("Error: dwell must be enabled if roller is enabled")'''
 
 # used for recording time to completion
 e = datetime.datetime.now()
