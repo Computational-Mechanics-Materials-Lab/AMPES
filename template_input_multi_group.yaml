@@ -28,6 +28,7 @@ yorg_shift: 0.0              # origin shift in y in mm
 zorg_shift: 0.0              # origin shift in z in mm
 dwell: true               
 roller: true                 # if a roller event series is needed, set to true. dwell must also be true
+roller_height_offset: 0.00
 w_dwell: 0.0                 # time it takes for the roller to deposit material in s for L-PBF process
 power_fluctuation: false
 deviation: 300.0
