@@ -339,7 +339,7 @@ try:
 except KeyError as e:
     exit("Error: Layer groups missing expected variable: {}".format(e.args[0]))
 
-# logic check for dwell time given roller is enabled
+# logic check for dwell time given roller is enabled - do we still need this
 '''if roller:
     if dwell:
         if group_flag:
