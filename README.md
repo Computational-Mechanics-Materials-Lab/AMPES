@@ -151,7 +151,7 @@ layer_groups:
 The following parameters relate to dwell time. 
 
 * `dwell` \[`boolean`\]: set to `false` to ignore the interlayer dwell times provided by `interlayer_dwell` and `w_dwell`
-* `roller` \[`boolean`\]: `true` if a separate roller event series should be generated, else `false`. Developed for usage with L-PBF AM process modeling.
+* `roller` \[`boolean`\]: `true` if a separate roller event series should be generated, else `false`. Developed for usage with L-PBF AM process modeling
 * `w_dwell` \[`int`, `float`\]: the amount of time it takes for the roller/wiper to finish laying down material for the next layer if `roller` is set to true
  
 Regardless of value, all variables relating to dwell time are ignored if the `dwell` variable is set to `false` and the event series will be generated assuming as if all dwell-related variables are set to 0.
@@ -176,9 +176,9 @@ Schemes available for use are as follows:
 
 AMPES allows for the Z height output to the event series files to be modified for specific use cases.
 
-* `roller_height_offset` \[`int`, `float`\] allows the user to modify the output z value in the roller event series to be more or less than the output z height for the tool/laser path event series. 
-* `last_layer_height_change` \[`int`, `float`\] allows for changing the output z height of the final layer from a .gcode file to all output event series files. 
-* `substrate_thickness` \[`int`, `float`\] Allows the user to shift the entire event series in the build direction to account for a substrate being included in the CAD file for .gcode file generation.
+* `roller_height_offset` \[`int`, `float`\]: allows the user to modify the output z value in the roller event series to be more or less than the output z height for the tool/laser path event seriea 
+* `last_layer_height_change` \[`int`, `float`\]: allows for changing the output z height of the final layer from a g-code file to all output event series files
+* `substrate_thickness` \[`int`, `float`\]: allows the user to shift the entire event series in the build direction to account for a substrate being included in the CAD file for g-code file generation
 
 ### Process Parameters
 
