@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 ## STL to RepRap G-code
 
-AMPES accepts RepRap flavored g-code as the input file for determining the event series coordinate positions. G-code file generation can be handled using any g-code slicing software, although Slic3r \[1\] was the software used for AMPES development. The g-code file must be built to mimic the movement of the raster scanning leveraged by the selected AM process. This requires an <em>.stl</em> file of the selected geometry to be modeled and AM process information such as the material layer/deposition height, hatch spacing, tool/laser speed, etc. to be used with the g-code generation. Please see the provided single and multi group AMPES examples for an illustration of a developed RepRap g-code file for usage with AMPES. The primary difference between the slicing software options the user may want to consider are the scan strategies available. While meander, also called rectangular is one of the most common scan strategies implored, different AM builds may use different strategies and therefore the user may need to look into different g-code slicer options to generate the RepRap g-code file.
+AMPES accepts RepRap flavored g-code as the input file for determining the event series coordinate positions. G-code file generation can be handled using any g-code slicing software, although Slic3r \[1\] and Cura \[2\] were was the software packages used for AMPES development. The g-code file must be built to mimic the movement of the raster scanning leveraged by the selected AM process. This requires an <em>.stl</em> file of the selected geometry to be modeled and AM process information such as the material layer/deposition height, hatch spacing, tool/laser speed, etc. to be used with the g-code generation. Please see the provided single and multi group AMPES examples for an illustration of a developed RepRap g-code file for usage with AMPES. The primary difference between the slicing software options the user may want to consider are the scan strategies available. While meander, also called rectangular is one of the most common scan strategies implored, different AM builds may use different strategies and therefore the user may need to look into different g-code slicer options to generate the RepRap g-code file.
 
 ## AMPES Overview
 
@@ -183,8 +183,10 @@ AMPES can output the process parameters used with each run. To print process par
   * contour velocity and power
   * interlayer dwell time
 * roller time if enabled
+* roller height offset
 * number of points between g-code points (interval)
 * layer height
+* last layer height change
 * substrate thickness
 * origin shift applied
 
@@ -239,6 +241,7 @@ Matthew W. Priddy - mwpriddy@me.msstate.edu
 # References
 
 [1] G. Hodgson, Slic3r Manual. Accessed: May 10, 2024. [Online]. Available: https://manual.slic3r.org/ 
+[2] “Cura User Support,” Cura Getting started. Accessed: Feb. 20, 2025. [Online]. Available: https://support.ultimaker.com/s/topic/0TO5b000000Q4w2GAC/cura-getting-started
 
 # License
 
