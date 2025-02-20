@@ -228,7 +228,7 @@ If these variables are not set, then event series output will default to `6` dig
 
 Files created by AMPES will output to the directory provided to the `output_dir` argument or `<current working directory>/output` otherwise.
 
- The value provided to the `outfile_name` argument which defaults to `output` if none is provided. Files will be named at the root with `<outfile_name>`.
+The value provided to the `outfile_name` argument which defaults to `output` if none is provided. Files will be named at the root with `<outfile_name>`.
 
 **Output Files**
 
