@@ -176,7 +176,7 @@ Schemes available for use are as follows:
 
 AMPES allows for the Z height output to the event series files to be modified for specific use cases.
 
-* `roller_height_offset` \[`int`, `float`\]: allows the user to modify the output z value in the roller event series to be more or less than the output z height for the tool/laser path event seriea 
+* `roller_height_offset` \[`int`, `float`\]: allows the user to modify the output z value in the roller event series to be more or less than the output z height for the tool/laser path event series 
 * `last_layer_height_change` \[`int`, `float`\]: allows for changing the output z height of the final layer from a g-code file to all output event series files
 * `substrate_thickness` \[`int`, `float`\]: allows the user to shift the entire event series in the build direction to account for a substrate being included in the CAD file for g-code file generation
 
@@ -239,7 +239,7 @@ Files created by AMPES will output to the directory provided to the `output_dir`
 
 # Example Container
 
-Examples containing input gcode files, configured .yaml input configuration files, and expected outputs for a single-group run as well as a multi-group run are available [this CodeOcean container](https://codeocean.com/capsule/6016581/tree/v1). 
+Examples containing input g-code files, configured .yaml input configuration files, and expected outputs for a single-group run as well as a multi-group run are available [this CodeOcean container](https://codeocean.com/capsule/6016581/tree/v1). 
 
 # Point of Contact
 
@@ -248,6 +248,7 @@ Matthew W. Priddy - mwpriddy@me.msstate.edu
 # References
 
 [1] G. Hodgson, Slic3r Manual. Accessed: May 10, 2024. [Online]. Available: https://manual.slic3r.org/ 
+
 [2] “Cura User Support,” Cura Getting started. Accessed: Feb. 20, 2025. [Online]. Available: https://support.ultimaker.com/s/topic/0TO5b000000Q4w2GAC/cura-getting-started
 
 # License
