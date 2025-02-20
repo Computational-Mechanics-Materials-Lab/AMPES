@@ -172,12 +172,16 @@ Schemes available for use are as follows:
 * strict - perturbs following a discrete uniform curve
 * uniform - perturbs  following a continuous uniform curve
 
+### Event Series Layer Height Changes
+
+AMPES allows for the Z height output to the event series files to be modified for specific use cases. `roller_height_offset` \[`int`, `float`\] allows the user to modify the output z value in the roller event series to be more or less than the output z height for the tool/laser path event series. The `last_layer_height_change` \[`int`, `float`\] allows for changing the output z height of the final layer from a .gcode file to all output event series files. `substrate_thickness` \[`int`, `float`\] Allows the user to shift the entire event series in the build direction to account for a substrate being included in the CAD file for .gcode file generation.
+
 ### Process Parameters
 
 AMPES can output the process parameters used with each run. To print process parameters after a run, set the boolean option `process_param_request` to `true`. The following are outputted in the process parameters csv file.
 
 
-* time AMPES was ran
+* time AMPES was run
 * process parameters per layer group
   * infill velocity and power
   * contour velocity and power
