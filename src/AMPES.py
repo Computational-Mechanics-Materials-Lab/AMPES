@@ -146,6 +146,10 @@ def get_idx_from_ranges(num: int, ranges: list):
 
 
 # Constants
+READING_SECTION_STRING = "Reading g-code file"
+ES_SECTION_STRING = "Populating event series output"
+DWELL_SECTION_STRING = "Adjusting output times for dwell"
+
 config_var_types = {
     "layer_groups": dict,
     "interval": int,
@@ -206,8 +210,15 @@ parser.add_argument(
     "--outfile_name",
     help="Basename for the files that will be outputted, defaults to \"output\"",
     default="output")
+parser.add_argument(
+    "--headless",
+    help="Option to run AMPES in headless mode",
+    action='store_true'
+)
 
 args = parser.parse_args()
+
+headless = args.headless
 
 # Process Parameters
 # All are set from the config provided as an argument
@@ -409,7 +420,10 @@ with open(gcode_filename, "r") as gcode_file:
     power = []
     z_pos = 0
     # removing white spaces on lines with G1 or G0
-    for v in tqdm (range (100), desc="Reading g-code file",ascii=False, ncols=125):
+    if headless:
+        print(READING_SECTION_STRING)
+
+    for v in tqdm(range(100), desc="Reading g-code file",ascii=False, ncols=125, disable=headless):
         for line in gcode_file:
             #checks for gcode software to account for initial Z movement
             if line.__contains__("Slic3r") :
@@ -485,7 +499,10 @@ section_recorder = {
     "type": []
 }  # for commenting infill and contour sections
 curr_sec = ""  # tracks current section
-for i in tqdm (range (1,len(x)), desc="Populating event series output", ascii=False, ncols=125):
+if headless:
+    print(ES_SECTION_STRING)
+
+for i in tqdm(range(1, len(x)), desc="Populating event series output", ascii=False, ncols=125, disable=headless):
     if group_flag:
         # set speed according to input file groups if needed
         group_idx = get_idx_from_ranges(j - 2, intervals)
@@ -576,9 +593,11 @@ if dwell or time_series:
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
+    if headless:
+        print(DWELL_SECTION_STRING)
     if roller:
         t_out += w_dwell  # increment whole t_out array by roller time
-    for i in tqdm (range (len(z_inc_arr)), desc="Adjusting output times for dwell", ascii=False, ncols=125):
+    for i in tqdm(range(len(z_inc_arr)), desc="Adjusting output times for dwell", ascii=False, ncols=125, disable=headless):
         if group_flag:
             group_idx = get_idx_from_ranges(i, intervals)
             if group_idx == -1:

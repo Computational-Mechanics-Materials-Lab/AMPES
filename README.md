@@ -224,6 +224,10 @@ These are optional variables to adjust the precision of output files.
 
 If these variables are not set, then event series output will default to `6` digits after the decimal and time series output will default to `2`.
 
+### Headless Mode
+
+The presence of the `--headless` argument allows for cleaner output from AMPES when used on remote servers. This option disables all loading bar output from tqdm. 
+
 ## Outputs
 
 Files created by AMPES will output to the directory provided to the `output_dir` argument or `<current working directory>/output` otherwise.
