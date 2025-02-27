@@ -10,8 +10,6 @@ The Additive Manufacturing Process Event Series generator, AMPES, is a Python-ba
 
 # Requirements
 
-Slic3r Version: 1.3
-
 Python Version: 3.10
 
 Python Packages:
