@@ -18,6 +18,7 @@ Python Packages:
 
 * NumPy
 * PyYaml
+* tqdm
 
 Dependencies can be installed using the included `requirements.txt` file by executing the following line:
 
