@@ -3,19 +3,21 @@ layer_groups:
   group_one:
     layers: [1, 95]          # interval of layers in the group
     infill:  
-      base_speed:  0.0       # infill speed in mm/s
+      base_speed: 0.0       # infill speed in mm/s
+      output_speed: 0.0      # infill speed used with layer group in mm/s 
       power: 0.0             # power in mW
     contour:
-      base_speed:  0.0       # contour speed in mm/s
+      base_speed: 0.0       # contour speed in mm/s
+      output_speed: 0.0      # contour speed used with layer group in mm/s
       power: 0.0             # power in mW
     interlayer_dwell:  0.0   # dwell time in s. only relevant if dwell is true
   group_two:
     layers: [96, 142]        # interval of layers in the group
     infill:  
-      output_speed:  0.0     # infill speed in mm/s
+      output_speed:  0.0     # infill speed used with layer group in mm/s 
       power: 0.0             # power in mW
     contour:
-      output_speed:  0.0     # contour speed in mm/s
+      output_speed:  0.0     # contour speed used with layer group in mm/s
       power: 0.0             # power in mW
     interlayer_dwell: 0.0    # dwell time in s. only relevant if dwell is true
     
@@ -32,7 +34,7 @@ roller_height_offset: 0.00
 w_dwell: 0.0                 # time it takes for the roller to deposit material in s for L-PBF process
 power_fluctuation: false
 deviation: 300.0
-scheme: "uniform"            # perturbation scheme for power. see readme for more options
+scheme: "uniform"            # perturbation scheme for power fluctuation. see readme for more options
 comment_event_series: true   # enable or disable comments in event series
 comment_string: "**"         # string that prepends comments. only important if `comment_event_series` is true
 process_param_request: true  # if a text file with process parameters is desired, set to true
