@@ -100,7 +100,7 @@ In the case that the user has only one set of values that they wish to apply to 
 
 Both the `infill` and `contour` sections of each layer group section will require a `power` variable that dictates the value in milli-Watts, respectively, for that section.
 
-The `interlayer_dwell` variable sets the amount of time in seconds waited for between layers until heat source would return to the same X-Y position on a sequential layer. This variable is ignored if the general `dwell` boolean variable is set to `false`.
+The `interlayer_dwell` variable sets the amount of time in seconds waited for between layers until heat source would return to the same X-Y position on a sequential layer. This variable is ignored if the general `dwell` boolean variable is set to `false`. If the `roller` variable discussed in section [Dwell](#dwell) is true, this value must be greater than or equal to the value of `w_dwell`. This is due to the fact that AMPES considers interlayer dwell to be inclusive of the time it takes for the roller to deposit material.
 
 ### Output Speed
 
