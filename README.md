@@ -10,14 +10,13 @@ The Additive Manufacturing Process Event Series generator, AMPES, is a Python-ba
 
 # Requirements
 
-Slic3r Version: 1.3
-
 Python Version: 3.10
 
 Python Packages:
 
 * NumPy
 * PyYaml
+* tqdm
 
 Dependencies can be installed using the included `requirements.txt` file by executing the following line:
 
@@ -29,7 +28,7 @@ pip install -r requirements.txt
 
 ## STL to RepRap G-code
 
-AMPES accepts RepRap flavored g-code as the input file for determining the event series coordinate positions. G-code file generation can be handled using any g-code slicing software, although Slic3r \[1\] was the software used for AMPES development. The g-code file must be built to mimic the movement of the raster scanning leveraged by the selected AM process. This requires an <em>.stl</em> file of the selected geometry to be modeled and AM process information such as the material layer/deposition height, hatch spacing, tool/laser speed, etc. to be used with the g-code generation. Please see the provided single and multi group AMPES examples for an illustration of a developed RepRap g-code file for usage with AMPES. The primary difference between the slicing software options the user may want to consider are the scan strategies available. While meander, also called rectangular is one of the most common scan strategies implored, different AM builds may use different strategies and therefore the user may need to look into different g-code slicer options to generate the RepRap g-code file.
+AMPES accepts RepRap flavored g-code as the input file for determining the event series coordinate positions. G-code file generation can be handled using any g-code slicing software, although Slic3r \[1\] and Cura \[2\] were the software packages used for AMPES development. The g-code file must be built to mimic the movement of the raster scanning leveraged by the selected AM process. This requires an <em>.stl</em> file of the selected geometry to be modeled and AM process information such as the material layer/deposition height, hatch spacing, tool/laser speed, etc. to be used with the g-code generation. Please see the provided single and multi group AMPES examples for an illustration of a developed RepRap g-code file for usage with AMPES. The primary difference between the slicing software options the user may want to consider are the scan strategies available. While meander, also called rectangular is one of the most common scan strategies implored, different AM builds may use different strategies and therefore the user may need to look into different g-code slicer options to generate the RepRap g-code file.
 
 ## AMPES Overview
 
@@ -101,7 +100,7 @@ In the case that the user has only one set of values that they wish to apply to 
 
 Both the `infill` and `contour` sections of each layer group section will require a `power` variable that dictates the value in milli-Watts, respectively, for that section.
 
-The `interlayer_dwell` variable sets the amount of time in seconds waited for between layers until heat source would return to the same X-Y position on a sequential layer. This variable is ignored if the general `dwell` boolean variable is set to `false`.
+The `interlayer_dwell` variable sets the amount of time in seconds waited for between layers until heat source would return to the same X-Y position on a sequential layer. This variable is ignored if the general `dwell` boolean variable is set to `false`. If the `roller` variable discussed in section [Dwell](#dwell) is true, this value must be greater than or equal to the value of `w_dwell`. This is due to the fact that AMPES considers interlayer dwell to be inclusive of the time it takes for the roller to deposit material.
 
 ### Output Speed
 
@@ -151,7 +150,7 @@ layer_groups:
 The following parameters relate to dwell time. 
 
 * `dwell` \[`boolean`\]: set to `false` to ignore the interlayer dwell times provided by `interlayer_dwell` and `w_dwell`
-* `roller` \[`boolean`\]: `true` if a separate roller event series should be generated, else `false`. Developed for usage with L-PBF AM process modeling.
+* `roller` \[`boolean`\]: `true` if a separate roller event series should be generated, else `false`. Developed for usage with L-PBF AM process modeling
 * `w_dwell` \[`int`, `float`\]: the amount of time it takes for the roller/wiper to finish laying down material for the next layer if `roller` is set to true
  
 Regardless of value, all variables relating to dwell time are ignored if the `dwell` variable is set to `false` and the event series will be generated assuming as if all dwell-related variables are set to 0.
@@ -172,19 +171,28 @@ Schemes available for use are as follows:
 * strict - perturbs following a discrete uniform curve
 * uniform - perturbs  following a continuous uniform curve
 
+### Event Series Layer Height Changes
+
+AMPES allows for the Z height output to the event series files to be modified for specific use cases.
+
+* `roller_height_offset` \[`int`, `float`\]: allows the user to modify the output z value in the roller event series to be more or less than the output z height for the tool/laser path event series 
+* `last_layer_height_change` \[`int`, `float`\]: allows for changing the output z height of the final layer from a g-code file to all output event series files
+* `substrate_thickness` \[`int`, `float`\]: allows the user to shift the entire event series in the build direction to account for a substrate being included in the CAD file for g-code file generation
+
 ### Process Parameters
 
 AMPES can output the process parameters used with each run. To print process parameters after a run, set the boolean option `process_param_request` to `true`. The following are outputted in the process parameters csv file.
 
-
-* time AMPES was ran
+* time AMPES was run
 * process parameters per layer group
   * infill velocity and power
   * contour velocity and power
   * interlayer dwell time
 * roller time if enabled
+* roller height offset
 * number of points between g-code points (interval)
 * layer height
+* last layer height change
 * substrate thickness
 * origin shift applied
 
@@ -215,11 +223,15 @@ These are optional variables to adjust the precision of output files.
 
 If these variables are not set, then event series output will default to `6` digits after the decimal and time series output will default to `2`.
 
+### Headless Mode
+
+The presence of the `--headless` argument allows for cleaner output from AMPES when used on remote servers. This option disables all loading bar output from tqdm. 
+
 ## Outputs
 
 Files created by AMPES will output to the directory provided to the `output_dir` argument or `<current working directory>/output` otherwise.
 
- The value provided to the `outfile_name` argument which defaults to `output` if none is provided. Files will be named at the root with `<outfile_name>`.
+The value provided to the `outfile_name` argument which defaults to `output` if none is provided. Files will be named at the root with `<outfile_name>`.
 
 **Output Files**
 
@@ -230,7 +242,7 @@ Files created by AMPES will output to the directory provided to the `output_dir`
 
 # Example Container
 
-Examples containing input gcode files, configured .yaml input configuration files, and expected outputs for a single-group run as well as a multi-group run are available [this CodeOcean container](https://codeocean.com/capsule/6016581/tree/v1). 
+Examples containing input g-code files, configured .yaml input configuration files, and expected outputs for a single-group run as well as a multi-group run are available [this CodeOcean container](https://codeocean.com/capsule/6016581/tree/v1). 
 
 # Point of Contact
 
@@ -239,6 +251,8 @@ Matthew W. Priddy - mwpriddy@me.msstate.edu
 # References
 
 [1] G. Hodgson, Slic3r Manual. Accessed: May 10, 2024. [Online]. Available: https://manual.slic3r.org/ 
+
+[2] “Cura User Support,” Cura Getting started. Accessed: Feb. 20, 2025. [Online]. Available: https://support.ultimaker.com/s/topic/0TO5b000000Q4w2GAC/cura-getting-started
 
 # License
 

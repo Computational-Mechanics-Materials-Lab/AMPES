@@ -45,6 +45,7 @@ import math
 import re
 from itertools import chain
 from sys import exit
+from tqdm import tqdm
 
 
 # Functions
@@ -145,6 +146,10 @@ def get_idx_from_ranges(num: int, ranges: list):
 
 
 # Constants
+READING_SECTION_STRING = "Reading g-code file"
+ES_SECTION_STRING = "Populating event series output"
+DWELL_SECTION_STRING = "Adjusting output times for dwell"
+
 config_var_types = {
     "layer_groups": dict,
     "interval": int,
@@ -154,6 +159,7 @@ config_var_types = {
     "power": (int, float),
     "interlayer_dwell": (int, float),
     "layer_height": (int, float),
+    "last_layer_height_change": (int, float),
     "substrate": float,
     "xorg_shift": (int, float),
     "yorg_shift": (int, float),
@@ -161,6 +167,7 @@ config_var_types = {
     "dwell": bool,
     "roller": bool,
     "w_dwell": (int, float),
+    "roller_height_offset": (int, float),
     "power_fluctuation": bool,
     "deviation": (int, float),
     "scheme": str,
@@ -203,8 +210,15 @@ parser.add_argument(
     "--outfile_name",
     help="Basename for the files that will be outputted, defaults to \"output\"",
     default="output")
+parser.add_argument(
+    "--headless",
+    help="Option to run AMPES in headless mode",
+    action='store_true'
+)
 
 args = parser.parse_args()
+
+headless = args.headless
 
 # Process Parameters
 # All are set from the config provided as an argument
@@ -233,8 +247,10 @@ try:
     layer_groups = config["layer_groups"]
     interval = config["interval"]
     layer_height = config["layer_height"]
+    last_layer_height_change = config["last_layer_height_change"]
     dwell = config["dwell"]
     roller, w_dwell = handle_cond_var("roller", "w_dwell", config)
+    roller_height_offset = config["roller_height_offset"]
     process_param_request = config["process_param_request"]
     substrate = config["substrate"]
     time_series, time_series_sample_points = handle_cond_var(
@@ -265,6 +281,12 @@ try:
         if scheme not in power_fluc_schemes:
             exit("Error: Scheme given '{}' not in list of valid schemes {}".
                  format(scheme, power_fluc_schemes))
+
+    # handle roller being true but roller time set to 0
+    if roller:
+        if w_dwell <= 0:
+            exit("Error: Roller must be a positive nonzero number but is {}".
+            format(w_dwell))
 
     # warn for time points demanded, but being 0
     if time_series:
@@ -306,6 +328,13 @@ try:
                 raise KeyError(
                     "Layer groups' infill and contour sections after first layer group must contain an 'output_speed' variable"
                 )
+
+        # handle interlayer dwell time being less than roller time
+        if roller:
+            for ind in range(len(layer_group_list)):
+                if layer_group_list[ind]["interlayer_dwell"] < w_dwell:
+                    exit("Error: Layer group '{}' has a interlayer dwell time less than w_dwell. Interlayer dwell is inclusive of roller time and thus should be equal to or greater than the value set for w_dwell.".
+                    format(list(layer_group_keys)[ind]))
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
@@ -331,25 +360,12 @@ try:
         else:
             contour_speed = layer_group["contour"]["output_speed"]
 
+        # handle interlayer dwell time being less than roller time
+        if roller and layer_group["interlayer_dwell"] < w_dwell:
+            exit("Error: Interlayer dwell time is less than w_dwell. Interlayer dwell is inclusive of roller time and thus should be equal to or greater than the value set for w_dwell.")
+
 except KeyError as e:
     exit("Error: Layer groups missing expected variable: {}".format(e.args[0]))
-
-# logic check for dwell time given roller is enabled
-if roller:
-    if dwell:
-        if group_flag:
-            for layer_group in layer_group_list:
-                if w_dwell > layer_group["interlayer_dwell"]:
-                    exit(
-                        "Error: w_dwell time must be lower than all interlayer_dwell times"
-                    )
-        else:
-            if w_dwell > interlayer_dwell:
-                exit(
-                    "Error: w_dwell time must be lower than the interlayer_dwell time"
-                )
-    else:
-        exit("Error: dwell must be enabled if roller is enabled")
 
 # used for recording time to completion
 e = datetime.datetime.now()
@@ -411,7 +427,7 @@ if not os.path.isdir(output_dir):
 # Gcode Reading
 
 with open(gcode_filename, "r") as gcode_file:
-    print("Reading g-code file")
+    #print("Reading g-code file")
     # more variables needed for reading gcodes
     x = []
     y = []
@@ -421,55 +437,74 @@ with open(gcode_filename, "r") as gcode_file:
     power = []
     z_pos = 0
     # removing white spaces on lines with G1 or G0
-    for line in gcode_file:
-        if line.startswith("G1") or line.startswith(
-                "G0"):  # only reads movement commands
-            # Replacing ; with single space and splitting into list
-            line = line.replace(';', ' ').split()
-            # Add coordinates to corresponding arrays # changed linestring here
-            for item in line:
-                if pattern.fullmatch(item):
-                    if item[0] == "X":
-                        x.append(float(item[1:]))
-                        f.append(curr_f)
-                        z_pos += 1
-                    elif item[0] == "Y":
-                        y.append(float(item[1:]))
-                    elif item[0] == "Z":
-                        z.append(float(item[1:]))
+    if headless:
+        print(READING_SECTION_STRING)
+
+    for v in tqdm(range(100), desc="Reading g-code file",ascii=False, ncols=125, disable=headless):
+        for line in gcode_file:
+            #checks for gcode software to account for initial Z movement
+            if line.__contains__("Slic3r") :
+                z_start = 0
+            elif line.__contains__("Cura") :
+                z_start = 1
+                z.append(z_start) #modifies z_array if Cura was used to account for removal of initial Z value
+                z_posl.append(z_start)
+            if line.startswith("G1") or line.startswith(
+                    "G0"):  # only reads movement commands
+                # Adding 0 infront of decimal point for negative float values less than -1.0
+                line = line.replace('-.', '-0.')
+                # Replacing ; with single space and splitting into list
+                line = line.replace(';', ' ').split()
+                # Add coordinates to corresponding arrays # changed linestring here
+                for item in line:
+                    if pattern.fullmatch(item):
+                        if item[0] == "X":
+                            x.append(float(item[1:]))
+                            f.append(curr_f)
+                            z_pos += 1
+                        elif item[0] == "Y":
+                            y.append(float(item[1:]))
+                        elif item[0] == "Z":
+                            z.append(float(item[1:]))
+                            if group_flag:
+                                group_idx = get_idx_from_ranges(
+                                    len(z) - 1, intervals)
+                                if group_idx == -1:
+                                    # break at z value since we don't want to record past a layer jump outside of ranges
+                                    break
+                            z_posl.append(z_pos)  # Count of z positions per layer
+                        elif item[0] == "F":
+                            curr_f = float(item[1:])
+                if group_flag and group_idx == -1:
+                    break
+                if "X" in "".join(line):
+                    if "E" in "".join(line):
                         if group_flag:
-                            group_idx = get_idx_from_ranges(
-                                len(z) - 1, intervals)
-                            if group_idx == -1:
-                                # break at z value since we don't want to record past a layer jump outside of ranges
-                                break
-                        z_posl.append(z_pos)  # Count of z positions per layer
-                    elif item[0] == "F":
-                        curr_f = float(item[1:])
-            if group_flag and group_idx == -1:
-                break
-            if "X" in "".join(line):
-                if "E" in "".join(line):
-                    if group_flag:
-                        infill_power = layer_group_list[group_idx]["infill"][
-                            "power"]
-                        contour_power = layer_group_list[group_idx]["contour"][
-                            "power"]
-                    if curr_f == infill_f_val:
-                        power.append(infill_power)
-                    elif curr_f == contour_f_val:
-                        power.append(contour_power)
+                            infill_power = layer_group_list[group_idx]["infill"][
+                                "power"]
+                            contour_power = layer_group_list[group_idx]["contour"][
+                                "power"]
+                        if curr_f == infill_f_val:
+                            power.append(infill_power)
+                        elif curr_f == contour_f_val:
+                            power.append(contour_power)
+                        else:
+                            exit(
+                                "ERROR: g-code contains unexpected F values. Verify that the speed used in g-code file is {} for infill region and {} for contour region."
+                                .format(infill_f_val / 60, contour_f_val / 60))
                     else:
-                        exit(
-                            "ERROR: g-code contains unexpected F values. Verify that the speed used in g-code file is {} for infill region and {} for contour region."
-                            .format(infill_f_val / 60, contour_f_val / 60))
-                else:
-                    power.append(0)
+                        power.append(0)
+
+#Declaration of Slicing software package used as noted in .gcode file. Slic3r is default
+if z_start == 1 :
+    print("Cura slicing software used")
+else :
+   print("Slic3r slicing software used") 
 
 # Using the given velocity and time step, the velocity in each direction is calculated. This is used to determine
 # the incremental movement in each direction and then added to the previous value to give the next coordinate. When
 # the position command value is reached, it goes to the next value
-z_coord = z[1]
+z_coord = z[1] #changed to 0 9/16 DPF
 j = 2
 x_out = np.array([x[0]])
 y_out = np.array([y[0]])
@@ -481,8 +516,10 @@ section_recorder = {
     "type": []
 }  # for commenting infill and contour sections
 curr_sec = ""  # tracks current section
-print("Populating event series output")
-for i in range(1, len(x)):
+if headless:
+    print(ES_SECTION_STRING)
+
+for i in tqdm(range(1, len(x)), desc="Populating event series output", ascii=False, ncols=125, disable=headless):
     if group_flag:
         # set speed according to input file groups if needed
         group_idx = get_idx_from_ranges(j - 2, intervals)
@@ -525,7 +562,7 @@ for i in range(1, len(x)):
             curr_sec = "contour"
 
     del_t = del_d / vel
-
+    
     # add interpolated values to output arrays
     tmp_x = np.linspace(x[i - 1], x[i], interval + 2)
     tmp_y = np.linspace(y[i - 1], y[i], interval + 2)
@@ -537,16 +574,14 @@ for i in range(1, len(x)):
     z_out = np.concatenate([z_out[:-1], tmp_z])
     power_out = np.concatenate([power_out[:-1], tmp_p])
     t_out = np.concatenate([t_out[:-1], tmp_t])
-
+    
     time += del_t
 
     # Recording gcode converted values of x, y, z, power, and time to output arrays
     # This step occurs to assist the user for reading the output event series. The z-jump
     # could take place with no points in between if desired
-    if j < len(
-            z_posl):  #if j is less than the total number of layers in the build
-        if i == z_posl[
-                j] - 1:  #if i is equal to one less than the number of z positions of the jth layer
+    if j < len(z_posl):  #if j is less than the total number of layers in the build
+        if i == z_posl[j] - 1:  #if i is equal to one less than the number of z positions of the jth layer
             # peform a z jump of layer_height distance
             del_z = layer_height
 
@@ -559,21 +594,27 @@ for i in range(1, len(x)):
             y_out = np.concatenate([y_out, [y_out[-1]] * 2])
             power_out = np.concatenate([power_out, [0] * 2])
             t_out = np.concatenate([t_out, [t_out[-1]] * 2])
-
             z_coord += layer_height
             j += 1
 
+zmax_temp = max(z_out)
+if last_layer_height_change != 0 :
+    print("Adjusting last layer height")
+    for L in range(len(z_out)) :
+        if z_out[L] == zmax_temp :
+            z_out[L] = z_out[L] + last_layer_height_change
+
 if dwell or time_series:
     # create layer jump tracking array if required
-    z_inc_arr = [(z_posl[i] - 1) * (interval + 1) + (i - 1) * 2
-                 for i in range(2, len(z_posl))]
+    z_inc_arr = [(z_posl[i] - 1) * (interval + 1) + (i - 1) * 2 for i in range(2,len(z_posl))]
 
 # Adjust time output array by dwell time variables if option is set
 if dwell:
-    print("Adjusting output times for dwell")
+    if headless:
+        print(DWELL_SECTION_STRING)
     if roller:
         t_out += w_dwell  # increment whole t_out array by roller time
-    for i in range(len(z_inc_arr)):
+    for i in tqdm(range(len(z_inc_arr)), desc="Adjusting output times for dwell", ascii=False, ncols=125, disable=headless):
         if group_flag:
             group_idx = get_idx_from_ranges(i, intervals)
             if group_idx == -1:
@@ -623,7 +664,7 @@ with open(main_event_series, 'w', newline='') as csvfile:
     print("Writing print path event series to {}".format(main_event_series))
     position_writer = csv.writer(csvfile)
     rows = []
-    for i in range(len(t_out)):
+    for i in range (len(t_out)) : 
         row = [
             round(t_out[i], es_precision),
             round(x_out[i] + xorg_shift, es_precision),
@@ -651,14 +692,14 @@ if roller:
         for i in range(len(z_wiper)):
             if i % 2 == 0:
                 row = [
-                    round(t_wiper[i], es_precision), -180, 270,
-                    round(z_wiper[i] - substrate + zorg_shift, 3), 1.0
+                    round(t_wiper[i], es_precision), -125, 250,
+                    round(z_wiper[i] - substrate + zorg_shift + roller_height_offset, 3), 1.0
                 ]
                 position_writer.writerow(row)
             else:
                 row = [
-                    round(t_wiper[i], es_precision), 180, 270,
-                    round(z_wiper[i] - substrate + zorg_shift, 3), 0.0
+                    round(t_wiper[i], es_precision), 125, 250,
+                    round(z_wiper[i] - substrate + zorg_shift + roller_height_offset, 3), 0.0
                 ]
                 position_writer.writerow(row)
 
@@ -760,6 +801,12 @@ if process_param_request:
         position_writer.writerow(date_time)
         header = ["Parameter", "Value", "Unit"]
         write_rows = []
+        if z_start == 1 :
+            write_rows.append(["Cura slicing software used"])
+            write_rows.append(["for .gcode file generation"])
+        else :
+            write_rows.append(["Slic3r slicing software used"]) 
+            write_rows.append(["for .gcode file generation"])
         write_rows.append([])
         if not group_flag:
             # determine output velocities
@@ -832,6 +879,8 @@ if process_param_request:
         write_rows.append(["##Overall parameters"])
         write_rows.append(["Intervals", interval, "#"])
         write_rows.append(["Layer Height", layer_height, "mm"])
+        write_rows.append(["Last Layer Height Change", last_layer_height_change, "mm"])
+        write_rows.append(["roller_height_offset", roller_height_offset, "mm"])
         write_rows.append(["Substrate Thickness", substrate, "mm"])
         write_rows.append(["Origin Shift in X", xorg_shift, "mm"])
         write_rows.append(["Origin Shift in Y", yorg_shift, "mm"])

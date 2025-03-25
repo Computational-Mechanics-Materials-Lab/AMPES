@@ -11,16 +11,18 @@ layer_groups:
     
 interval: 1                  # interpolated points between all points from gcode
 layer_height: 0.0            # layer height in mm
+last_layer_height_change: 0  # last layer height change in mm
 substrate: 0.0               # substrate height in mm
 xorg_shift: 0.0              # origin shift in x in mm
 yorg_shift: 0.0              # origin shift in y in mm
 zorg_shift: 0.0              # origin shift in z in mm
 dwell: true               
 roller: true                 # if a roller event series is needed, set to true. dwell must also be true
+roller_height_offset: 0.00
 w_dwell: 0.0                 # time it takes for the roller to deposit material in s for L-PBF process
 power_fluctuation: false
 deviation: 300.0
-scheme: "uniform"            # perturbation scheme for power. see readme for more options
+scheme: "uniform"            # perturbation scheme for power fluctuation. see readme for more options
 comment_event_series: true   # enable or disable comments in event series
 comment_string: "**"         # string that prepends comments. only important if `comment_event_series` is true
 process_param_request: true  # if a text file with process parameters is desired, set to true
