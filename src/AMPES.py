@@ -282,6 +282,12 @@ try:
             exit("Error: Scheme given '{}' not in list of valid schemes {}".
                  format(scheme, power_fluc_schemes))
 
+    # handle roller being true but roller time set to 0
+    if roller:
+        if w_dwell <= 0:
+            exit("Error: Roller must be a positive nonzero number but is {}".
+            format(w_dwell))
+
     # warn for time points demanded, but being 0
     if time_series:
         if time_series_sample_points == 0:
@@ -322,11 +328,13 @@ try:
                 raise KeyError(
                     "Layer groups' infill and contour sections after first layer group must contain an 'output_speed' variable"
                 )
+
+        # handle interlayer dwell time being less than roller time
         if roller:
             for ind in range(len(layer_group_list)):
                 if layer_group_list[ind]["interlayer_dwell"] < w_dwell:
-                    exit("Error: Layer group '{}' has a interlayer dwell time less than w_dwell. Interlayer dwell is inclusive of roller time and thus should be equal to or greater than the value set for w_dwell."
-                    .format(list(layer_group_keys)[ind]))
+                    exit("Error: Layer group '{}' has a interlayer dwell time less than w_dwell. Interlayer dwell is inclusive of roller time and thus should be equal to or greater than the value set for w_dwell.".
+                    format(list(layer_group_keys)[ind]))
     else:
         # handles the case of a single layer group
         layer_group = list(layer_groups.values())[0]
@@ -352,6 +360,7 @@ try:
         else:
             contour_speed = layer_group["contour"]["output_speed"]
 
+        # handle interlayer dwell time being less than roller time
         if roller and layer_group["interlayer_dwell"] < w_dwell:
             exit("Error: Interlayer dwell time is less than w_dwell. Interlayer dwell is inclusive of roller time and thus should be equal to or greater than the value set for w_dwell.")
 
